@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "xrpname": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\PC\\OneDrive\\Develop\\VibeCode\\xrpname-mcp-server\\bundle\\xrpname-mcp.cjs"
+      ]
+    }
+  }
+}

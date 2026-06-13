@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# secrets / local env
+.env
+.env.local
+.env.*.local
+
+# logs & coverage
+*.log
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# packaged build artifacts (regenerate with `npm run pack`).
+# Distribute these via GitHub Releases instead of committing them.
+# Remove these two lines if you do want them tracked in the repo.
+bundle/
+*.mcpb
+
+# scratch / verification harnesses
+.tcheck/
+.tcheck2/

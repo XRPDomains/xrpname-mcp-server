@@ -64,9 +64,10 @@ Copy `.env.example` → `.env`. Everything has sane defaults; Redis is optional 
 
 | Route | Purpose |
 |---|---|
-| `POST /mcp` | MCP JSON-RPC (stateless Streamable HTTP) |
+| `POST /mcp` | MCP JSON-RPC (stateless Streamable HTTP) — rate-limited (§12.1) |
 | `GET /health` | Liveness — XRPL reachability |
 | `GET /ready` | Readiness |
+| `GET /metrics` | Prometheus exposition (request counts, latency, cache hit rate) |
 
 ## Project docs
 

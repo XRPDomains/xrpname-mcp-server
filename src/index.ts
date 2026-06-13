@@ -1,9 +1,10 @@
 /**
  * HTTP entrypoint — Fastify + MCP Streamable HTTP transport (stateless).
  * Endpoints:
- *   POST /mcp     — JSON-RPC (initialize / tools/list / tools/call)
+ *   POST /mcp     — JSON-RPC (initialize / tools/list / tools/call), rate-limited
  *   GET  /health  — liveness (Redis optional + XRPL reachability)
  *   GET  /ready   — readiness
+ *   GET  /metrics — Prometheus exposition (§13.3)
  *
  * Stateless pattern: a fresh McpServer + transport per request, so no
  * session affinity is needed behind a load balancer. OAuth (Buoc 3) will
@@ -16,6 +17,15 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createMcpServer, SERVER_NAME, SERVER_VERSION } from './server.js';
 import { buildDeps, closeDeps } from './deps.js';
 import { loadConfig } from './config.js';
+import { metrics } from './lib/metrics.js';
+import { checkRateLimit, resolveLimit } from './lib/rate-limit.js';
+
+/** Best-effort tool/method label for a JSON-RPC body, for metrics. */
+function requestLabel(body: unknown): string {
+  const b = body as { method?: unknown; params?: { name?: unknown } } | undefined;
+  if (b?.method === 'tools/call' && typeof b.params?.name === 'string') return b.params.name;
+  return typeof b?.method === 'string' ? b.method : 'unknown';
+}
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -31,7 +41,34 @@ async function main(): Promise<void> {
   });
 
   app.post('/mcp', async (req, reply) => {
+    // Rate limit (§12.1) — keyed by authenticated address when present, else IP.
+    // The key/budget split is the seam OAuth (Bước 3) plugs into via authAddress.
+    if (config.rateLimit.enabled) {
+      const { key, limit } = resolveLimit(config.rateLimit, deps.authAddress, req.ip);
+      const rl = await checkRateLimit(deps.cache, key, limit, config.rateLimit.windowSec);
+      reply.header('RateLimit-Limit', String(rl.limit));
+      reply.header('RateLimit-Remaining', String(rl.remaining));
+      reply.header('RateLimit-Reset', String(rl.resetSec));
+      if (!rl.allowed) {
+        metrics.recordRequest(requestLabel(req.body), 'error', 0);
+        return reply
+          .code(429)
+          .header('Retry-After', String(rl.retryAfterSec))
+          .send({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message: `Too many requests — try again in ${rl.retryAfterSec} seconds`,
+            },
+            id: null,
+          });
+      }
+    }
+
     // Stateless: new server + transport per request.
+    const startMs = Date.now();
+    const label = requestLabel(req.body);
+    let outcome: 'ok' | 'error' = 'ok';
     const server = createMcpServer(deps);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     reply.hijack();
@@ -39,10 +76,13 @@ async function main(): Promise<void> {
       await server.connect(transport);
       await transport.handleRequest(req.raw, reply.raw, req.body);
       reply.raw.on('close', () => {
+        metrics.recordRequest(label, outcome, (Date.now() - startMs) / 1000);
         void transport.close();
         void server.close();
       });
     } catch (err) {
+      outcome = 'error';
+      metrics.recordRequest(label, 'error', (Date.now() - startMs) / 1000);
       logger.error({ err }, 'mcp request failed');
       if (!reply.raw.headersSent) {
         reply.raw.writeHead(500, { 'Content-Type': 'application/json' });
@@ -80,6 +120,15 @@ async function main(): Promise<void> {
   });
 
   app.get('/ready', async (_req, reply) => reply.code(200).send({ ready: true }));
+
+  // Prometheus exposition (§13.3). text/plain; version 0.0.4 is the standard
+  // content type scrapers expect.
+  app.get('/metrics', async (_req, reply) =>
+    reply
+      .code(200)
+      .header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+      .send(metrics.render()),
+  );
 
   const shutdown = async () => {
     logger.info('shutting down');

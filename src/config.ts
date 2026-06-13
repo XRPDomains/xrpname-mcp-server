@@ -4,6 +4,13 @@
  */
 import 'dotenv/config';
 
+export interface RateLimitConfig {
+  enabled: boolean;
+  readPerWindow: number;
+  unauthPerWindow: number;
+  windowSec: number;
+}
+
 export interface Config {
   apiBase: string;
   xrplWssUrl: string;
@@ -15,11 +22,17 @@ export interface Config {
   logLevel: string;
   port: number;
   webBase: string;
+  rateLimit: RateLimitConfig;
 }
 
 function num(value: string | undefined, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) && value !== undefined && value !== '' ? n : fallback;
+}
+
+function bool(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined || value === '') return fallback;
+  return /^(1|true|yes|on)$/i.test(value);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -34,5 +47,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     logLevel: env.LOG_LEVEL ?? 'info',
     port: num(env.PORT, 3000),
     webBase: env.XRPDOMAINS_WEB_BASE ?? 'https://xrpdomains.xyz',
+    rateLimit: {
+      enabled: bool(env.RATE_LIMIT_ENABLED, true),
+      readPerWindow: num(env.RATE_LIMIT_READ_PER_MIN, 60),
+      unauthPerWindow: num(env.RATE_LIMIT_UNAUTH_PER_MIN, 30),
+      windowSec: num(env.RATE_LIMIT_WINDOW_SEC, 60),
+    },
   };
 }

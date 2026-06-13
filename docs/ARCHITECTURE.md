@@ -20,7 +20,9 @@ src/clients/        xrpdomains-api (REST), xrpl-client (wss), cache (Redis | mem
 src/lib/            domain-validator, pricing (mirror of search.html tiers),
                     web-fallback-url, errors (§11 classifier),
                     api-endpoints (SINGLE source of truth for all REST paths —
-                    v2 path changes happen here only; see "API versioning" below)
+                    v2 path changes happen here only; see "API versioning" below),
+                    metrics (zero-dep Prometheus registry, §13.3),
+                    rate-limit (fixed-window via Cache, §12.1)
 src/types/deps.ts   dependency container; authAddress = DEV_ADDRESS now, OAuth JWT sub later
 ```
 
@@ -57,11 +59,28 @@ to be verified with the backend team) added to the registry.
 
 Redis when `REDIS_URL` set, in-memory otherwise. Keys: `mcp:getAddress:<domain>` 60s, `mcp:getName:<address>` 60s, offers 10s. Invalidation on successful `send_signed_tx` (Bước 4).
 
+## Rate limiting + metrics (Bước 2)
+
+**Rate limit (§12.1)** — fixed-window counter in `src/lib/rate-limit.ts`, backed
+by the same `Cache` abstraction (Redis atomic `INCR`+`EXPIRE`, in-memory
+otherwise) so no extra dependency is needed. The `/mcp` handler gates each
+request: keyed by authenticated address (READ budget 60/min) when present, else
+by IP (unauth 30/min). On limit it returns `429` + `Retry-After`; every response
+carries `RateLimit-Limit/Remaining/Reset` headers. `resolveLimit()` is the seam
+OAuth (Bước 3) plugs into. Tunable via `RATE_LIMIT_*` env vars.
+
+**Metrics (§13.3)** — `src/lib/metrics.ts` is a zero-dependency Prometheus
+registry (chosen over `prom-client` to keep the dep tree small for a fixed metric
+set). `GET /metrics` exposes `mcp_requests_total{tool,outcome}`,
+`mcp_request_duration_seconds` (histogram), `mcp_cache_events_total{result}`
+(instrumented in `Cache.get`), `mcp_xrpl_submit_total` (Bước 4), and
+`process_uptime_seconds`.
+
 ## Phase status
 
 - ✅ Bước 0: scaffold, stdio + HTTP transports, `check_domains`, `get_domain_profile`, `check_tx_status`, smoke test
 - 🔶 Bước 1: `get_pending_offers` ✅ (address bắt buộc; incoming+outgoing offers in parallel) · `get_portfolio` ⬜ (chờ verify endpoint `getBithompNFT`)
-- ⬜ Bước 2: Redis rate limiting, `/metrics`, CI hardening
+- 🔶 Bước 2: rate limiting ✅ (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus ✅ · CI ✅ (GitHub Actions xanh)
 - ⬜ Bước 3: OAuth 2.1 + wallet signature
 - ⬜ Bước 4: `send_signed_tx` (testnet verified) → Phase 1 done
 - ⬜ Bước 5: staging deploy `mcp-staging.xrpdomains.xyz`

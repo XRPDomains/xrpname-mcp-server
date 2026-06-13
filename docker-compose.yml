@@ -1,0 +1,17 @@
+services:
+  mcp:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      XRPDOMAINS_API_BASE: https://xrpdomains.xyz
+      XRPL_WSS_URL: wss://xrplcluster.com
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      PORT: '3000'
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'

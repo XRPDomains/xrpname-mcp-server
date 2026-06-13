@@ -80,7 +80,7 @@ set). `GET /metrics` exposes `mcp_requests_total{tool,outcome}`,
 
 - ✅ Bước 0: scaffold, stdio + HTTP transports, `check_domains`, `get_domain_profile`, `check_tx_status`, smoke test
 - 🔶 Bước 1: `get_pending_offers` ✅ (address bắt buộc; incoming+outgoing offers in parallel) · `get_portfolio` ⬜ (chờ verify endpoint `getBithompNFT`)
-- 🔶 Bước 2: rate limiting ✅ (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus ✅ · CI ✅ (GitHub Actions xanh)
+- ✅ Bước 2: rate limiting (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus · CI hardened (Node 20+22 matrix, build step, npm cache, concurrency, non-blocking live smoke job)
 - ⬜ Bước 3: OAuth 2.1 + wallet signature
 - ⬜ Bước 4: `send_signed_tx` (testnet verified) → Phase 1 done
 - ⬜ Bước 5: staging deploy `mcp-staging.xrpdomains.xyz`

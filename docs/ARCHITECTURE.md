@@ -1,6 +1,6 @@
 # Architecture — XRPName MCP Server
 
-Standalone Node.js/TypeScript service exposing XRPL domain operations (.xrp / .xrpfi / .xrpl) to AI agents via the Model Context Protocol. Spec: `specs/XRPDomains-MCP-Server-Spec.md`.
+Standalone Node.js/TypeScript service exposing XRPL domain operations (.xrp / .xrpl / .xrpfi / .rlusd) to AI agents via the Model Context Protocol. Spec: `specs/XRPDomains-MCP-Server-Spec.md`.
 
 ## Principles (binding)
 
@@ -52,8 +52,8 @@ change.
 
 **To migrate to v2:** add a `v2` `EndpointSet` to the registry and flip
 `ACTIVE_API_VERSION` (or wire it to an env var). Nothing in the client, tools,
-or tests changes. Pending TODO: `get_portfolio` needs `getBithompNFT` (path name
-to be verified with the backend team) added to the registry.
+or tests changes. (Note: `get_portfolio` uses `getAllNames` — the spec's
+suggested `getBithompNFT` returns 404 and is not used.)
 
 ## Caching (§12.2)
 
@@ -79,7 +79,7 @@ set). `GET /metrics` exposes `mcp_requests_total{tool,outcome}`,
 ## Phase status
 
 - ✅ Bước 0: scaffold, stdio + HTTP transports, `check_domains`, `get_domain_profile`, `check_tx_status`, smoke test
-- 🔶 Bước 1: `get_pending_offers` ✅ (address bắt buộc; incoming+outgoing offers in parallel) · `get_portfolio` ⬜ (chờ verify endpoint `getBithompNFT`)
+- ✅ Bước 1: `get_pending_offers` (address bắt buộc; incoming+outgoing in parallel) · `get_portfolio` (verified endpoint `GET /api/xrplnft/getAllNames?address=...` — returns name strings; nftoken_id/image/mint = null, use get_domain_profile for detail; parser drops junk + keeps emoji/exotic TLD)
 - ✅ Bước 2: rate limiting (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus · CI hardened (Node 20+22 matrix, build step, npm cache, concurrency, non-blocking live smoke job)
 - ⬜ Bước 3: OAuth 2.1 + wallet signature
 - ⬜ Bước 4: `send_signed_tx` (testnet verified) → Phase 1 done

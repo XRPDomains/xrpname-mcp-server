@@ -31,6 +31,8 @@ export interface EndpointSet {
   getAddress(domain: string): string;
   /** address → primary domain string. */
   getName(address: string): string;
+  /** address → all domain names owned by the wallet (portfolio). */
+  getAllNames(address: string): string;
   /** Incoming offers (address is recipient). */
   getOfferByDestination(address: string): string;
   /** Outgoing offers (address is sender/owner). */
@@ -48,6 +50,7 @@ const v1: EndpointSet = {
   prefix: v1Prefix,
   getAddress: (domain) => `${v1Prefix}/getAddress?domain=${enc(domain)}`,
   getName: (address) => `${v1Prefix}/getName?address=${enc(address)}`,
+  getAllNames: (address) => `${v1Prefix}/getAllNames?address=${enc(address)}`,
   getOfferByDestination: (address) =>
     `${v1Prefix}/getOfferByDestination?address=${enc(address)}`,
   getOfferByOwner: (address) => `${v1Prefix}/getOfferByOwner?address=${enc(address)}`,

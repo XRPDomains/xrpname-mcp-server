@@ -19,7 +19,7 @@ export function registerCheckDomains(server: McpServer, deps: Deps): void {
         'Check 1 to 25 XRPL domains for registration status and cost. ' +
         'Use for questions like "is <name>.xrp taken?", "how much does <name>.xrp cost?", ' +
         '"who owns <name>.xrp?", or to verify availability before registering. ' +
-        'Accepts .xrp, .xrpfi, .xrpl TLDs (defaults to .xrp when omitted). ' +
+        'Accepts .xrp, .xrpl, .xrpfi, .rlusd TLDs (defaults to .xrp when omitted). ' +
         'Returns availability, pricing, owner address, profile metadata if registered, ' +
         'and a web URL for the user to register if available. ' +
         'Also returns invalid_domains for inputs that fail validation.',

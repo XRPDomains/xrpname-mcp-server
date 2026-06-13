@@ -1,9 +1,9 @@
 /**
- * Domain normalisation + validation for .xrp / .xrpfi / .xrpl.
+ * Domain normalisation + validation for .xrp / .xrpl / .xrpfi / .rlusd.
  * Charset mirrors v3/js/v3-nft-tx.js RE_NAME: [a-z0-9_-]
  * Spec ref: §8.1, §14.1
  */
-export const TLDS = ['.xrp', '.xrpfi', '.xrpl'] as const;
+export const TLDS = ['.xrp', '.xrpl', '.xrpfi', '.rlusd'] as const;
 export type Tld = (typeof TLDS)[number];
 
 const LABEL_RE = /^[a-z0-9_-]+$/;

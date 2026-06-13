@@ -93,6 +93,23 @@ export class XrpDomainsApi {
     return name || null;
   }
 
+  /** All domain names owned by an address (portfolio). Cached 30s (§12.2). */
+  async getAllNames(address: string): Promise<string[]> {
+    const key = `mcp:portfolio:${address}`;
+    const cached = await this.cache.get<string[]>(key);
+    if (cached) return cached;
+
+    const json = (await this.fetchJson(this.endpoints.getAllNames(address))) as {
+      data?: unknown;
+    };
+
+    const list = Array.isArray(json?.data)
+      ? json.data.filter((x): x is string => typeof x === 'string')
+      : [];
+    await this.cache.set(key, list, 30);
+    return list;
+  }
+
   /** Incoming offers (user is recipient). Cached 10s. */
   async getOffersByDestination(address: string): Promise<unknown[]> {
     return this.fetchOffers('getOfferByDestination', this.endpoints.getOfferByDestination(address), address);

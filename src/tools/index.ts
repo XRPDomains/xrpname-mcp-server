@@ -9,6 +9,7 @@ import { registerCheckDomains } from './check-domains.js';
 import { registerGetDomainProfile } from './get-domain-profile.js';
 import { registerCheckTxStatus } from './check-tx-status.js';
 import { registerGetPendingOffers } from './get-pending-offers.js';
+import { registerGetPortfolio } from './get-portfolio.js';
 
 export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckDomains(server, deps);
@@ -16,4 +17,5 @@ export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckTxStatus(server, deps);
   // Bước 1
   registerGetPendingOffers(server, deps);
+  registerGetPortfolio(server, deps);
 }

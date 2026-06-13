@@ -4,9 +4,9 @@
 
 Repo: <https://github.com/XRPDomains/xrpname-mcp-server>
 
-XRPL domain operations (`.xrp` / `.xrpfi` / `.xrpl`) for AI agents via the [Model Context Protocol](https://modelcontextprotocol.io). Check availability, look up profiles, manage portfolios and (later) build transfer/registration transactions — all from Claude, Codex, Cursor or any MCP client.
+XRPL domain operations (`.xrp` / `.xrpl` / `.xrpfi` / `.rlusd`) for AI agents via the [Model Context Protocol](https://modelcontextprotocol.io). Check availability, look up profiles, manage portfolios and (later) build transfer/registration transactions — all from Claude, Codex, Cursor or any MCP client.
 
-**Status: Bước 1 (in progress).** Tools: `check_domains`, `get_domain_profile`, `check_tx_status`, `get_pending_offers`. No private keys ever touch this server — signing always happens in the user's wallet.
+**Status: Phase 1 read tools complete.** Tools: `check_domains`, `get_domain_profile`, `check_tx_status`, `get_pending_offers`, `get_portfolio`. No private keys ever touch this server — signing always happens in the user's wallet.
 
 ## Quick start
 

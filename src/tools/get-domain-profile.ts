@@ -27,7 +27,7 @@ export function registerGetDomainProfile(server: McpServer, deps: Deps): void {
         if (!parsed.ok) {
           throw new McpToolError(
             'INVALID_INPUT',
-            `Domain "${domain}" is not valid — ${parsed.reason}. Must end in .xrp, .xrpfi, or .xrpl.`,
+            `Domain "${domain}" is not valid — ${parsed.reason}. Must end in .xrp, .xrpl, .xrpfi, or .rlusd.`,
           );
         }
         const record = await deps.api.getAddress(parsed.domain);

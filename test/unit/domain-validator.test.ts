@@ -7,9 +7,11 @@ describe('parseDomain', () => {
     expect(r).toMatchObject({ ok: true, domain: 'nftcafe.xrp', tld: '.xrp', length: 7, isSubname: false });
   });
 
-  it('keeps explicit TLDs', () => {
+  it('keeps explicit TLDs (.xrp, .xrpl, .xrpfi, .rlusd)', () => {
     expect(parseDomain('foo.xrpfi')).toMatchObject({ ok: true, domain: 'foo.xrpfi', tld: '.xrpfi' });
     expect(parseDomain('foo.xrpl')).toMatchObject({ ok: true, domain: 'foo.xrpl', tld: '.xrpl' });
+    expect(parseDomain('foo.rlusd')).toMatchObject({ ok: true, domain: 'foo.rlusd', tld: '.rlusd' });
+    expect(parseDomain('payment.rlusd')).toMatchObject({ ok: true, tld: '.rlusd', length: 7 });
   });
 
   it('lowercases and trims', () => {

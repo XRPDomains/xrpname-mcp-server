@@ -8,9 +8,12 @@
  */
 import { McpToolError } from '../lib/errors.js';
 import { ApiEndpoints, type EndpointSet } from '../lib/api-endpoints.js';
+import { normalizePortfolioPage, type PortfolioEntry } from '../lib/portfolio.js';
 import type { Cache } from './cache.js';
 
 const TIMEOUT_MS = 15_000;
+/** Safety cap on Shape-B pagination (50/page × 20 = 1000 domains). */
+const MAX_PORTFOLIO_PAGES = 20;
 
 export interface DomainRecord {
   owner: string | null;
@@ -93,21 +96,34 @@ export class XrpDomainsApi {
     return name || null;
   }
 
-  /** All domain names owned by an address (portfolio). Cached 30s (§12.2). */
-  async getAllNames(address: string): Promise<string[]> {
+  /**
+   * Domains owned by an address (portfolio). Normalises both backend response
+   * shapes (flat strings | rich paginated objects) and follows pagination up to
+   * a safety cap. Cached 30s (§12.2).
+   */
+  async getPortfolioEntries(
+    address: string,
+  ): Promise<{ entries: PortfolioEntry[]; reportedTotal: number | null }> {
     const key = `mcp:portfolio:${address}`;
-    const cached = await this.cache.get<string[]>(key);
+    const cached = await this.cache.get<{ entries: PortfolioEntry[]; reportedTotal: number | null }>(key);
     if (cached) return cached;
 
-    const json = (await this.fetchJson(this.endpoints.getAllNames(address))) as {
-      data?: unknown;
-    };
+    const first = normalizePortfolioPage(await this.fetchJson(this.endpoints.getAllNames(address)));
+    let entries = first.entries;
 
-    const list = Array.isArray(json?.data)
-      ? json.data.filter((x): x is string => typeof x === 'string')
-      : [];
-    await this.cache.set(key, list, 30);
-    return list;
+    // Shape B is paginated (limit present) — fetch the remaining pages.
+    if (first.limit && first.total && first.total > entries.length) {
+      const pages = Math.min(Math.ceil(first.total / first.limit), MAX_PORTFOLIO_PAGES);
+      for (let page = 2; page <= pages; page++) {
+        const next = normalizePortfolioPage(await this.fetchJson(this.endpoints.getAllNames(address, page)));
+        if (next.entries.length === 0) break;
+        entries = entries.concat(next.entries);
+      }
+    }
+
+    const result = { entries, reportedTotal: first.total };
+    await this.cache.set(key, result, 30);
+    return result;
   }
 
   /** Incoming offers (user is recipient). Cached 10s. */

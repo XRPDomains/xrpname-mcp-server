@@ -79,8 +79,8 @@ set). `GET /metrics` exposes `mcp_requests_total{tool,outcome}`,
 ## Phase status
 
 - ✅ Bước 0: scaffold, stdio + HTTP transports, `check_domains`, `get_domain_profile`, `check_tx_status`, smoke test
-- ✅ Bước 1: `get_pending_offers` (address bắt buộc; incoming+outgoing in parallel) · `get_portfolio` (verified endpoint `GET /api/xrplnft/getAllNames?address=...` — returns name strings; nftoken_id/image/mint = null, use get_domain_profile for detail; parser drops junk + keeps emoji/exotic TLD)
+- ✅ Bước 1: `get_pending_offers` (address bắt buộc; incoming+outgoing in parallel) · `get_portfolio` (`GET /api/xrplnft/getAllNames?address=...`). **The endpoint returns TWO shapes** — a flat string list, or a paginated rich-object list (`nftoken_id`/`metadata.image`/`createtime`/`is_primary`). `src/lib/portfolio.ts` normalises both; the client follows pagination (cap 20 pages); the tool fills nftoken_id/image_url/minted_at/is_primary when available. Parser drops junk + keeps emoji/exotic TLD; `skipped`/`owner_total` surface backend data-quality gaps.
 - ✅ Bước 2: rate limiting (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus · CI hardened (Node 20+22 matrix, build step, npm cache, concurrency, non-blocking live smoke job)
-- ⬜ Bước 3: OAuth 2.1 + wallet signature
+- 🔶 Bước 3: Chặng A ✅ — JWT HS256 (zero-dep, `src/lib/jwt.ts`) + Bearer→authAddress resolver (`src/lib/auth.ts`), wired per-request in `/mcp` (token invalid → 401; absent → DEV_ADDRESS). Chặng B ⬜ — `/authorize` + `/token` + `/revoke` (OAuth 2.1 PKCE) and the wallet-kit signing page (signature verify delegated to backend `/api/auth/*`).
 - ⬜ Bước 4: `send_signed_tx` (testnet verified) → Phase 1 done
 - ⬜ Bước 5: staging deploy `mcp-staging.xrpdomains.xyz`

@@ -45,32 +45,57 @@ describe('parsePortfolioName', () => {
 });
 
 describe('buildPortfolio', () => {
-  const names = [
-    'xrpdomains.xrp',
-    'hello.777777.xrp',
-    'payment.rlusd',
-    'ab.xrp',
-    'api/xrplnft/getAddress?domain=giveaway.xrp', // junk
+  /** Helper: build a PortfolioEntry with optional rich fields. */
+  const e = (domain: string, extra: Partial<import('../../src/lib/portfolio.js').PortfolioEntry> = {}) => ({
+    domain,
+    nftokenId: null,
+    isPrimary: false,
+    imageUrl: null,
+    mintedAt: null,
+    ...extra,
+  });
+
+  const entries = [
+    e('xrpdomains.xrp', { nftokenId: 'NFT1', imageUrl: 'https://x/a.png', mintedAt: 1700000000, isPrimary: true }),
+    e('hello.777777.xrp'),
+    e('payment.rlusd'),
+    e('ab.xrp'),
+    e('api/xrplnft/getAddress?domain=giveaway.xrp'), // junk
   ];
 
-  it('drops junk, marks primary, builds URLs', () => {
-    const p = buildPortfolio('rOwner', names, 'xrpdomains.xrp', {
+  it('drops junk, fills rich fields, marks primary, builds URLs', () => {
+    const p = buildPortfolio('rOwner', entries, 'xrpdomains.xrp', {
+      sort: 'name-asc',
+      filterTld: 'all',
+      limit: 50,
+      webBase: WEB,
+      reportedTotal: 5,
+    });
+    expect(p.total).toBe(4); // junk removed
+    expect(p.skipped).toBe(1); // the stray getAddress entry
+    expect(p.owner_total).toBe(5);
+    expect(p.primary_domain).toBe('xrpdomains.xrp');
+    const primary = p.domains.find((d) => d.domain === 'xrpdomains.xrp');
+    expect(primary?.is_primary).toBe(true);
+    expect(primary?.nftoken_id).toBe('NFT1');
+    expect(primary?.image_url).toBe('https://x/a.png');
+    expect(primary?.minted_at).toBe(1700000000);
+    expect(primary?.profile_url).toContain('/name/');
+    expect(primary?.manage_url).toContain('/mydomains');
+  });
+
+  it('uses entry.isPrimary even without a primary arg', () => {
+    const p = buildPortfolio('rOwner', entries, null, {
       sort: 'name-asc',
       filterTld: 'all',
       limit: 50,
       webBase: WEB,
     });
-    expect(p.total).toBe(4); // junk removed
-    expect(p.primary_domain).toBe('xrpdomains.xrp');
-    const primary = p.domains.find((d) => d.domain === 'xrpdomains.xrp');
-    expect(primary?.is_primary).toBe(true);
-    expect(primary?.profile_url).toContain('/name/');
-    expect(primary?.manage_url).toContain('/mydomains');
-    expect(p.domains.every((d) => d.nftoken_id === null && d.minted_at === null)).toBe(true);
+    expect(p.domains.find((d) => d.domain === 'xrpdomains.xrp')?.is_primary).toBe(true);
   });
 
   it('filters by TLD', () => {
-    const p = buildPortfolio('rOwner', names, null, {
+    const p = buildPortfolio('rOwner', entries, null, {
       sort: 'recent',
       filterTld: '.rlusd',
       limit: 50,
@@ -78,11 +103,10 @@ describe('buildPortfolio', () => {
     });
     expect(p.total).toBe(1);
     expect(p.domains[0]?.domain).toBe('payment.rlusd');
-    expect(p.domains[0]?.is_primary).toBe(false);
   });
 
   it('sorts by length ascending', () => {
-    const p = buildPortfolio('rOwner', names, null, {
+    const p = buildPortfolio('rOwner', entries, null, {
       sort: 'length-asc',
       filterTld: 'all',
       limit: 50,
@@ -97,7 +121,7 @@ describe('buildPortfolio', () => {
   });
 
   it('applies the limit but reports full total', () => {
-    const p = buildPortfolio('rOwner', names, null, {
+    const p = buildPortfolio('rOwner', entries, null, {
       sort: 'name-asc',
       filterTld: 'all',
       limit: 2,

@@ -43,7 +43,8 @@ const manifest = {
   display_name: 'XRPName MCP',
   version: pkg.version,
   description:
-    'XRPL domains (.xrp / .xrpfi / .xrpl) — check availability, pricing, profiles and tx status.',
+    'XRPL domains (.xrp / .xrpl / .xrpfi / .rlusd) — check availability, pricing, profiles, ' +
+    'tx status, portfolio and pending offers.',
   author: { name: 'XRPDomains', url: 'https://xrpdomains.xyz' },
   homepage: 'https://xrpdomains.xyz',
   server: {
@@ -59,6 +60,8 @@ const manifest = {
     { name: 'check_domains', description: 'Check 1-25 XRPL domains for availability, pricing and owner' },
     { name: 'get_domain_profile', description: 'Full public profile of a domain (owner, metadata, socials)' },
     { name: 'check_tx_status', description: 'Validation status of an XRPL transaction by hash' },
+    { name: 'get_pending_offers', description: 'Pending incoming/outgoing NFToken offers for a wallet' },
+    { name: 'get_portfolio', description: 'All XRPL domains owned by a wallet address' },
   ],
   user_config: {
     dev_address: {

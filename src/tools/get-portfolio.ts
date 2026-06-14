@@ -17,6 +17,7 @@ import { isValidClassicAddress } from 'xrpl';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { profileUrl, myDomainsUrl } from '../lib/web-fallback-url.js';
 import { McpToolError, toErrorResult } from '../lib/errors.js';
+import type { PortfolioEntry } from '../lib/portfolio.js';
 import type { Deps } from '../types/deps.js';
 
 export type PortfolioSort = 'recent' | 'length-asc' | 'length-desc' | 'name-asc';
@@ -83,15 +84,25 @@ const SORTERS: Record<PortfolioSort, (a: PortfolioDomain, b: PortfolioDomain) =>
   recent: () => 0,
 };
 
-/** Build the full portfolio payload from raw names. Exported for unit testing. */
+/** Build the full portfolio payload from normalised entries. Exported for unit testing. */
 export function buildPortfolio(
   address: string,
-  names: string[],
+  entries: PortfolioEntry[],
   primary: string | null,
-  opts: { sort: PortfolioSort; filterTld: string; limit: number; webBase: string },
+  opts: {
+    sort: PortfolioSort;
+    filterTld: string;
+    limit: number;
+    webBase: string;
+    reportedTotal?: number | null;
+  },
 ): {
   address: string;
   total: number;
+  /** Backend's reported owned count (may differ from `total` if pagination was capped). */
+  owner_total: number | null;
+  /** Raw entries dropped as malformed (backend data-quality signal). */
+  skipped: number;
   primary_domain: string | null;
   returned: number;
   domains: PortfolioDomain[];
@@ -99,24 +110,32 @@ export function buildPortfolio(
   const primaryLc = primary ? primary.trim().toLowerCase() : null;
   const wantTld = opts.filterTld.toLowerCase();
 
-  let parsed = names
-    .map(parsePortfolioName)
-    .filter((p): p is ParsedName => p !== null);
-
-  if (wantTld !== 'all') {
-    const tldNorm = wantTld.startsWith('.') ? wantTld : `.${wantTld}`;
-    parsed = parsed.filter((p) => p.tld === tldNorm);
+  const parsed: Array<{ p: ParsedName; e: PortfolioEntry }> = [];
+  let skipped = 0;
+  for (const e of entries) {
+    const p = parsePortfolioName(e.domain);
+    if (!p) {
+      skipped++;
+      continue;
+    }
+    parsed.push({ p, e });
   }
 
-  const domains: PortfolioDomain[] = parsed.map((p) => ({
+  let kept = parsed;
+  if (wantTld !== 'all') {
+    const tldNorm = wantTld.startsWith('.') ? wantTld : `.${wantTld}`;
+    kept = kept.filter(({ p }) => p.tld === tldNorm);
+  }
+
+  const domains: PortfolioDomain[] = kept.map(({ p, e }) => ({
     domain: p.domain,
-    nftoken_id: null,
-    is_primary: p.domain === primaryLc,
+    nftoken_id: e.nftokenId,
+    is_primary: e.isPrimary || p.domain === primaryLc,
     length: p.length,
     tld: p.tld,
     is_subname: p.isSubname,
-    image_url: null,
-    minted_at: null,
+    image_url: e.imageUrl,
+    minted_at: e.mintedAt,
     profile_url: profileUrl(p.domain, { webBase: opts.webBase }),
     manage_url: myDomainsUrl({ webBase: opts.webBase }),
   }));
@@ -127,6 +146,8 @@ export function buildPortfolio(
   return {
     address,
     total: domains.length,
+    owner_total: opts.reportedTotal ?? null,
+    skipped,
     primary_domain: primary ?? null,
     returned: limited.length,
     domains: limited,
@@ -168,16 +189,17 @@ export function registerGetPortfolio(server: McpServer, deps: Deps): void {
           );
         }
 
-        const [names, primary] = await Promise.all([
-          deps.api.getAllNames(address),
+        const [pf, primary] = await Promise.all([
+          deps.api.getPortfolioEntries(address),
           deps.api.getName(address),
         ]);
 
-        const payload = buildPortfolio(address, names, primary, {
+        const payload = buildPortfolio(address, pf.entries, primary, {
           sort,
           filterTld: filter_tld,
           limit,
           webBase: deps.config.webBase,
+          reportedTotal: pf.reportedTotal,
         });
         return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
       } catch (err) {

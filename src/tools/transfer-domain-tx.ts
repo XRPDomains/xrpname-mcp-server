@@ -7,10 +7,11 @@
  * transfer with accept_offer_tx (or the xrpdomains.xyz pending banner).
  */
 import { z } from 'zod';
-import { isValidClassicAddress, encode } from 'xrpl';
+import { isValidClassicAddress } from 'xrpl';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseDomain } from '../lib/domain-validator.js';
 import { buildTransferOffer } from '../lib/tx-build.js';
+import { encodeTx } from '../lib/tx-encode.js';
 import { myDomainsUrl } from '../lib/web-fallback-url.js';
 import { McpToolError, toErrorResult } from '../lib/errors.js';
 import type { Deps } from '../types/deps.js';
@@ -61,7 +62,7 @@ export function registerTransferDomainTx(server: McpServer, deps: Deps): void {
           nftokenId: record.nftokenId,
           destination: destinationAddress,
         });
-        const txHexBlob = encode(built.tx_json);
+        const txHexBlob = encodeTx(built.tx_json);
 
         const payload = {
           domain: parsed.domain,

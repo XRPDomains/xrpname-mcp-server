@@ -6,9 +6,9 @@
  * outgoing offer ids from get_pending_offers.
  */
 import { z } from 'zod';
-import { encode } from 'xrpl';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { buildCancelOffer } from '../lib/tx-build.js';
+import { encodeTx } from '../lib/tx-encode.js';
 import { myDomainsUrl } from '../lib/web-fallback-url.js';
 import { McpToolError, toErrorResult } from '../lib/errors.js';
 import type { Deps } from '../types/deps.js';
@@ -47,7 +47,7 @@ export function registerCancelOfferTx(server: McpServer, deps: Deps): void {
           tx_json: built.tx_json,
           walletPayload: built.walletPayload,
           method_hint: built.method_hint,
-          tx_hex_blob: encode(built.tx_json),
+          tx_hex_blob: encodeTx(built.tx_json),
           web_url: myDomainsUrl({ webBase: deps.config.webBase }),
           instructions:
             'Sign tx_json (or paste tx_hex_blob) in your wallet, then call send_signed_tx with the signed blob.',

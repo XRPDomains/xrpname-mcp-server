@@ -5,10 +5,10 @@
  * BUILD-TX-NOT-SIGN: the owner signs and broadcasts via send_signed_tx.
  */
 import { z } from 'zod';
-import { encode } from 'xrpl';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseDomain } from '../lib/domain-validator.js';
 import { buildBurn } from '../lib/tx-build.js';
+import { encodeTx } from '../lib/tx-encode.js';
 import { profileUrl } from '../lib/web-fallback-url.js';
 import { McpToolError, toErrorResult } from '../lib/errors.js';
 import type { Deps } from '../types/deps.js';
@@ -49,7 +49,7 @@ export function registerBurnDomainTx(server: McpServer, deps: Deps): void {
           tx_json: built.tx_json,
           walletPayload: built.walletPayload,
           method_hint: built.method_hint,
-          tx_hex_blob: encode(built.tx_json),
+          tx_hex_blob: encodeTx(built.tx_json),
           web_url: profileUrl(parsed.domain, { webBase: deps.config.webBase }),
           instructions:
             '⚠️ WARNING: Burning PERMANENTLY destroys this domain NFT and CANNOT be undone. ' +

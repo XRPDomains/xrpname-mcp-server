@@ -31,6 +31,10 @@ export interface NormalizedPage {
   total: number | null;
   /** Page size when the response is paginated (Shape B), else null. */
   limit: number | null;
+  /** Root `primary_domain` (v2 enriched shape) — lets us skip a getName call. */
+  primaryDomain: string | null;
+  /** v2 pagination flag; prefer over computing pages from total/limit. */
+  hasNext: boolean;
 }
 
 export function normalizePortfolioPage(json: unknown): NormalizedPage {
@@ -62,6 +66,8 @@ export function normalizePortfolioPage(json: unknown): NormalizedPage {
     entries,
     total: numOrNull(obj.total) ?? numOrNull(obj.count),
     limit: numOrNull(obj.limit),
+    primaryDomain: typeof obj.primary_domain === 'string' && obj.primary_domain ? obj.primary_domain : null,
+    hasNext: obj.has_next === true,
   };
 }
 

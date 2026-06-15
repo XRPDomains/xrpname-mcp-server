@@ -27,15 +27,19 @@ export interface EndpointSet {
   /** Prefix shared by all routes in this version (kept separate so a v2 prefix
    *  change is a one-line edit). */
   readonly prefix: string;
-  /** domain → owner + nftoken_id + profile. */
-  getAddress(domain: string): string;
+  /** domain → owner + nftoken_id + profile. `includeHistory` adds on-chain ownership timeline. */
+  getAddress(domain: string, includeHistory?: boolean): string;
+  /** v2 (E26): batch availability check — `domain=A,B,C` → status per domain. */
+  checkDomains(domains: string[]): string;
   /** address → primary domain string. */
   getName(address: string): string;
-  /** address → domains owned by the wallet (portfolio). `page` for Shape B pagination. */
-  getAllNames(address: string, page?: number): string;
-  /** Incoming offers (address is recipient). */
+  /** address → domains owned by the wallet (portfolio). `page`/`limit` → enriched paginated shape. */
+  getAllNames(address: string, page?: number, limit?: number): string;
+  /** v2 (E25): owner → mint + incoming + outgoing pending in one atomic snapshot. */
+  getPendingDomains(owner: string): string;
+  /** v1 legacy (replaced by getPendingDomains). Kept for safety/back-compat. */
   getOfferByDestination(address: string): string;
-  /** Outgoing offers (address is sender/owner). */
+  /** v1 legacy (replaced by getPendingDomains). */
   getOfferByOwner(address: string): string;
 }
 
@@ -48,10 +52,14 @@ const enc = encodeURIComponent;
 const v1Prefix = '/api/xrplnft';
 const v1: EndpointSet = {
   prefix: v1Prefix,
-  getAddress: (domain) => `${v1Prefix}/getAddress?domain=${enc(domain)}`,
+  getAddress: (domain, includeHistory) =>
+    `${v1Prefix}/getAddress?domain=${enc(domain)}${includeHistory ? '&include=history' : ''}`,
+  checkDomains: (domains) => `${v1Prefix}/checkDomains?domain=${enc(domains.join(','))}`,
   getName: (address) => `${v1Prefix}/getName?address=${enc(address)}`,
-  getAllNames: (address, page) =>
-    `${v1Prefix}/getAllNames?address=${enc(address)}${page ? `&page=${page}` : ''}`,
+  getAllNames: (address, page, limit) =>
+    `${v1Prefix}/getAllNames?address=${enc(address)}` +
+    `${limit ? `&limit=${limit}` : ''}${page ? `&page=${page}` : ''}`,
+  getPendingDomains: (owner) => `${v1Prefix}/getPendingDomains?owner=${enc(owner)}`,
   getOfferByDestination: (address) =>
     `${v1Prefix}/getOfferByDestination?address=${enc(address)}`,
   getOfferByOwner: (address) => `${v1Prefix}/getOfferByOwner?address=${enc(address)}`,

@@ -41,9 +41,22 @@ export function registerCheckDomains(server: McpServer, deps: Deps): void {
           else invalid.push(parsed);
         }
 
-        const results = await mapLimit(valid, CONCURRENCY, async (d) => {
+        // v2: ONE batch availability call (E26) instead of N × getAddress.
+        const checks = await deps.api.checkDomains(valid.map((d) => d.domain));
+        const byDomain = new Map(checks.map((c) => [c.domain, c]));
+
+        // Follow up with getAddress ONLY for registered domains, to fill the
+        // optional profile (§8.1) — usually a small subset.
+        const registered = valid.filter((d) => byDomain.get(d.domain)?.status === 'registered');
+        const profiles = new Map<string, Record<string, unknown> | null>();
+        await mapLimit(registered, CONCURRENCY, async (d) => {
           const record = await deps.api.getAddress(d.domain);
-          const available = !record.owner;
+          profiles.set(d.domain, record.profile);
+        });
+
+        const results = valid.map((d) => {
+          const check = byDomain.get(d.domain);
+          const available = check ? check.status === 'available' : true;
           return {
             domain: d.domain,
             available,
@@ -53,9 +66,9 @@ export function registerCheckDomains(server: McpServer, deps: Deps): void {
                   discountPercent: deps.config.discountPercent,
                 })
               : null,
-            owner: record.owner,
-            nftoken_id: record.nftokenId,
-            profile: available ? null : record.profile,
+            owner: check?.owner ?? null,
+            nftoken_id: check?.nftokenId ?? null,
+            profile: available ? null : (profiles.get(d.domain) ?? null),
             web_url: available
               ? searchUrl(d.domain, { webBase: deps.config.webBase })
               : profileUrl(d.domain, { webBase: deps.config.webBase }),

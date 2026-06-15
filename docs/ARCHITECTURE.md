@@ -1,6 +1,6 @@
 # Architecture — XRPName MCP Server
 
-Standalone Node.js/TypeScript service exposing XRPL domain operations (.xrp / .xrpl / .xrpfi / .rlusd) to AI agents via the Model Context Protocol. Spec: `specs/XRPDomains-MCP-Server-Spec.md`.
+Standalone Node.js/TypeScript service exposing XRPL domain operations (.xrp / .xrpl / .xrpfi / .rlusd) to AI agents via the Model Context Protocol. Spec: `specs/XRPDomains-MCP-Server-Spec-v2.md`.
 
 ## Principles (binding)
 
@@ -54,6 +54,22 @@ change.
 `ACTIVE_API_VERSION` (or wire it to an env var). Nothing in the client, tools,
 or tests changes. (Note: `get_portfolio` uses `getAllNames` — the spec's
 suggested `getBithompNFT` returns 404 and is not used.)
+
+## v2 endpoint alignment (post Jun 12 BE consolidation)
+
+The backend shipped aggregator endpoints; the registry + clients now consume them:
+
+| Tool | v2 endpoint | Win |
+|---|---|---|
+| `check_domains` | `checkDomains?domain=A,B,C` (batch) + `getAddress` follow-up for registered profiles | N calls → 1 (+ few) |
+| `get_portfolio` | `getAllNames?address=&limit=&page=` — `primary_domain` at root (no `getName`), `has_next` pagination | drops a call, richer entries |
+| `get_pending_offers` | `getPendingDomains?owner=` — `mint[]`+`incoming[]`+`outgoing[]` in one snapshot | 3+5N calls → 1 |
+| `get_domain_profile` | `getAddress?domain=&include=history` for the ownership timeline | merges the old 2-call Bithomp flow |
+
+Legacy paths (`getOfferByDestination/Owner`, per-NFT resolvers, `getBithompNFT` pass-through)
+remain in the registry as back-compat but are no longer on the hot path. Response-shape
+normalisers (`src/lib/portfolio.ts`, the tool mappers) tolerate the backend's
+two `getAllNames` shapes and an unreliable `total` field.
 
 ## Caching (§12.2)
 

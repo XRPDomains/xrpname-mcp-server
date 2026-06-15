@@ -72,7 +72,7 @@ Copy `.env.example` → `.env`. Everything has sane defaults; Redis is optional 
 ## Project docs
 
 - `docs/ARCHITECTURE.md` — layers, identity roadmap, v3 references
-- `specs/XRPDomains-MCP-Server-Spec.md` — full spec (§16 out-of-scope is binding: never modify the v3 web app)
+- `specs/XRPDomains-MCP-Server-Spec-v2.md` — current spec (post Jun 12 BE consolidation; v1 archived alongside). §16 out-of-scope is binding: never modify the v3 web app)
 
 ## Roadmap
 

@@ -33,7 +33,13 @@ try {
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();
   console.log('  tools:', names.join(', '));
-  for (const expected of ['check_domains', 'get_domain_profile', 'check_tx_status']) {
+  for (const expected of [
+    'check_domains',
+    'get_domain_profile',
+    'check_tx_status',
+    'get_pending_offers',
+    'get_portfolio',
+  ]) {
     check(`tools/list contains ${expected}`, names.includes(expected));
   }
 

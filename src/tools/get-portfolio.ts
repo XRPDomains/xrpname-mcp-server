@@ -95,12 +95,15 @@ export function buildPortfolio(
     limit: number;
     webBase: string;
     reportedTotal?: number | null;
+    truncated?: boolean;
   },
 ): {
   address: string;
   total: number;
   /** Backend's reported owned count (may differ from `total` if pagination was capped). */
   owner_total: number | null;
+  /** True if pagination hit the safety cap and the list may be incomplete. */
+  truncated: boolean;
   /** Raw entries dropped as malformed (backend data-quality signal). */
   skipped: number;
   primary_domain: string | null;
@@ -147,6 +150,7 @@ export function buildPortfolio(
     address,
     total: domains.length,
     owner_total: opts.reportedTotal ?? null,
+    truncated: opts.truncated ?? false,
     skipped,
     primary_domain: primary ?? null,
     returned: limited.length,
@@ -189,17 +193,17 @@ export function registerGetPortfolio(server: McpServer, deps: Deps): void {
           );
         }
 
-        const [pf, primary] = await Promise.all([
-          deps.api.getPortfolioEntries(address),
-          deps.api.getName(address),
-        ]);
+        // v2: getAllNames returns `primary_domain` at the root, so no separate
+        // getName call is needed.
+        const pf = await deps.api.getPortfolioEntries(address);
 
-        const payload = buildPortfolio(address, pf.entries, primary, {
+        const payload = buildPortfolio(address, pf.entries, pf.primaryDomain, {
           sort,
           filterTld: filter_tld,
           limit,
           webBase: deps.config.webBase,
           reportedTotal: pf.reportedTotal,
+          truncated: pf.truncated,
         });
         return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
       } catch (err) {

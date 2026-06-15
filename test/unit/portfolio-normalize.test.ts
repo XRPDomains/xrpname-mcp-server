@@ -10,6 +10,8 @@ describe('normalizePortfolioPage', () => {
     });
     expect(r.total).toBe(3);
     expect(r.limit).toBeNull();
+    expect(r.primaryDomain).toBeNull();
+    expect(r.hasNext).toBe(false);
     expect(r.entries).toEqual([
       { domain: 'alice.xrp', nftokenId: null, isPrimary: false, imageUrl: null, mintedAt: null },
       { domain: 'bob.xrpfi', nftokenId: null, isPrimary: false, imageUrl: null, mintedAt: null },
@@ -23,6 +25,8 @@ describe('normalizePortfolioPage', () => {
       total: 73,
       limit: 50,
       page: 1,
+      total_pages: 2,
+      has_next: true,
       primary_domain: 'xrpdomains.xrp',
       owner: 'rOwner',
       data: [
@@ -42,6 +46,8 @@ describe('normalizePortfolioPage', () => {
     });
     expect(r.total).toBe(73);
     expect(r.limit).toBe(50);
+    expect(r.primaryDomain).toBe('xrpdomains.xrp');
+    expect(r.hasNext).toBe(true);
     expect(r.entries[0]).toEqual({
       domain: 'xrpdomains.xrp',
       nftokenId: 'NFT123',

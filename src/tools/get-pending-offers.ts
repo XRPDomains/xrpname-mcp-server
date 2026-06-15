@@ -1,19 +1,18 @@
 /**
- * get_pending_offers — READ. §8.2. Pending XRPL NFToken offers for a wallet:
- * incoming (someone offered the wallet a domain) + outgoing (the wallet listed
- * a domain for transfer).
+ * get_pending_offers — READ. §8.2 (v2). Pending domain operations for a wallet:
+ *   - mint     : paid-but-not-yet-minted orders (continue-mint candidates)
+ *   - incoming : someone offered the wallet a domain
+ *   - outgoing : the wallet listed a domain for transfer
  *
- * Identity (Bước 1): `address` is REQUIRED — the caller must pass the wallet to
- * query. When OAuth lands (Bước 3) we'll default to the authenticated address.
+ * Identity (Phase 1): `address` is REQUIRED. OAuth (Phase 3) will default it.
  *
- * Backend: GET /api/xrplnft/getOfferByDestination + getOfferByOwner, run in
- * parallel (paths live in src/lib/api-endpoints.ts). Backend team may later ship
- * a unified /api/xrplnft/getPending — swapping it is a registry-only change.
+ * Backend (post Jun 12 consolidation): ONE call —
+ *   GET /api/xrplnft/getPendingDomains?owner=<r…>  (E25)
+ *   → { data: { mint[], incoming[], outgoing[], counts } } — atomic snapshot,
+ *   replacing the legacy getOfferByDestination + getOfferByOwner pair.
  *
- * NOTE: the exact field names on each raw offer object are NOT yet verified
- * against the live backend. `mapOffer` extracts defensively (tries several key
- * spellings) and passes the untouched `raw` object through so nothing is lost.
- * TODO(verify-backend): confirm field names, then tighten the key lists below.
+ * Field mapping BE → tool: incoming[].owner → `sender`; *[].amount → `amount_drops`
+ * (kept as string for precision); outgoing[].destination → `destination`.
  */
 import { z } from 'zod';
 import { isValidClassicAddress } from 'xrpl';
@@ -26,59 +25,92 @@ export interface PendingOffer {
   domain: string | null;
   nftoken_id: string | null;
   offer_id: string | null;
-  /** Counterparty: who made the offer (incoming) / where it's headed (outgoing). */
+  /** Counterparty: sender (incoming) or destination (outgoing). */
   counterparty: string | null;
-  expiration: number | null;
   amount_drops: string | null;
+  expiration: number | null;
+  created_at: string | null;
   raw: Record<string, unknown>;
 }
 
-const OFFER_ID_KEYS = ['offer_id', 'offerId', 'nft_offer_index', 'NFTokenOfferID', 'OfferID', 'index'];
-const NFT_ID_KEYS = ['nftoken_id', 'nftokenId', 'NFTokenID', 'nftid'];
+export interface PendingMint {
+  domain: string | null;
+  nftoken_id: string | null;
+  payment_tx: string | null;
+  status: string | null;
+  created_at: string | null;
+  raw: Record<string, unknown>;
+}
+
 const DOMAIN_KEYS = ['domain', 'name', 'Domain', 'Name'];
-const NFT_AMOUNT_KEYS = ['amount_drops', 'amount', 'Amount'];
+const NFT_ID_KEYS = ['nftoken_id', 'nftokenId', 'NFTokenID', 'nftid'];
+const OFFER_ID_KEYS = ['offer_id', 'offerId', 'nft_offer_index', 'NFTokenOfferID', 'index'];
+const AMOUNT_KEYS = ['amount_drops', 'amount', 'Amount'];
 const EXPIRATION_KEYS = ['expiration', 'Expiration', 'expires_at'];
+const CREATED_KEYS = ['created_at', 'createdAt', 'create_at', 'createtime'];
+const PAYMENT_TX_KEYS = ['payment_tx', 'paymentTx', 'tx_hash', 'hash'];
+const STATUS_KEYS = ['status', 'state'];
+// Incoming: the offer's NFT owner IS the sender. Outgoing: the destination.
 const SENDER_KEYS = ['sender', 'owner', 'Owner', 'account', 'Account', 'from'];
 const DESTINATION_KEYS = ['destination', 'Destination', 'to'];
 
-/**
- * Map one raw backend offer to the stable PendingOffer shape.
- * @param counterpartyKeys which keys hold the "other party" for this direction.
- * Exported for unit testing.
- */
+/** Map one raw offer (incoming|outgoing) to the stable shape. Exported for tests. */
 export function mapOffer(raw: unknown, counterpartyKeys: string[]): PendingOffer {
-  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const o = obj(raw);
   return {
     domain: pickStr(o, DOMAIN_KEYS),
     nftoken_id: pickStr(o, NFT_ID_KEYS),
     offer_id: pickStr(o, OFFER_ID_KEYS),
     counterparty: pickStr(o, counterpartyKeys),
+    amount_drops: pickStr(o, AMOUNT_KEYS),
     expiration: pickNum(o, EXPIRATION_KEYS),
-    amount_drops: pickStr(o, NFT_AMOUNT_KEYS),
+    created_at: pickStr(o, CREATED_KEYS),
     raw: o,
   };
 }
 
-/** Build the full tool payload from the two raw offer lists. Exported for tests. */
+/** Map one raw paid-but-unminted order. Exported for tests. */
+export function mapMint(raw: unknown): PendingMint {
+  const o = obj(raw);
+  return {
+    domain: pickStr(o, DOMAIN_KEYS),
+    nftoken_id: pickStr(o, NFT_ID_KEYS),
+    payment_tx: pickStr(o, PAYMENT_TX_KEYS),
+    status: pickStr(o, STATUS_KEYS),
+    created_at: pickStr(o, CREATED_KEYS),
+    raw: o,
+  };
+}
+
+/** Build the full tool payload from the three raw lists. Exported for tests. */
 export function buildPendingPayload(
   address: string,
+  mintRaw: unknown[],
   incomingRaw: unknown[],
   outgoingRaw: unknown[],
   manageUrl: string,
 ): {
   address: string;
+  mint: PendingMint[];
   incoming: PendingOffer[];
   outgoing: PendingOffer[];
-  counts: { incoming: number; outgoing: number; total: number };
+  counts: { mint: number; incoming: number; outgoing: number; total: number };
   manage_url: string;
 } {
+  const mint = mintRaw.map(mapMint);
   const incoming = incomingRaw.map((r) => mapOffer(r, SENDER_KEYS));
   const outgoing = outgoingRaw.map((r) => mapOffer(r, DESTINATION_KEYS));
   return {
     address,
+    mint,
     incoming,
     outgoing,
-    counts: { incoming: incoming.length, outgoing: outgoing.length, total: incoming.length + outgoing.length },
+    counts: {
+      mint: mint.length,
+      incoming: incoming.length,
+      outgoing: outgoing.length,
+      total: mint.length + incoming.length + outgoing.length,
+    },
     manage_url: manageUrl,
   };
 }
@@ -88,11 +120,11 @@ export function registerGetPendingOffers(server: McpServer, deps: Deps): void {
     'get_pending_offers',
     {
       description:
-        'Get all pending XRPL NFToken offers for a wallet — both incoming (someone offered the ' +
-        'wallet a domain) and outgoing (the wallet listed a domain for transfer). ' +
+        'Get all pending XRPL domain operations for a wallet — incoming offers (someone offered the ' +
+        'wallet a domain), outgoing offers (the wallet listed a domain), and paid-but-not-yet-minted ' +
+        'orders the user can still complete. ' +
         'Use when the user asks "do I have any pending transfers?", "what offers are waiting on me?", ' +
-        'or before suggesting an accept/cancel action. ' +
-        'Requires an XRPL r... address.',
+        'or before suggesting an accept/cancel/continue-mint action. Requires an XRPL r... address.',
       inputSchema: {
         address: z
           .string()
@@ -108,15 +140,12 @@ export function registerGetPendingOffers(server: McpServer, deps: Deps): void {
           );
         }
 
-        const [incomingRaw, outgoingRaw] = await Promise.all([
-          deps.api.getOffersByDestination(address),
-          deps.api.getOffersByOwner(address),
-        ]);
-
+        const pending = await deps.api.getPendingDomains(address);
         const payload = buildPendingPayload(
           address,
-          incomingRaw,
-          outgoingRaw,
+          pending.mint,
+          pending.incoming,
+          pending.outgoing,
           myDomainsUrl({ webBase: deps.config.webBase }),
         );
         return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
@@ -127,18 +156,22 @@ export function registerGetPendingOffers(server: McpServer, deps: Deps): void {
   );
 }
 
-function pickStr(obj: Record<string, unknown>, keys: string[]): string | null {
+function obj(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+}
+
+function pickStr(o: Record<string, unknown>, keys: string[]): string | null {
   for (const k of keys) {
-    const v = obj[k];
+    const v = o[k];
     if (typeof v === 'string' && v) return v;
     if (typeof v === 'number') return String(v);
   }
   return null;
 }
 
-function pickNum(obj: Record<string, unknown>, keys: string[]): number | null {
+function pickNum(o: Record<string, unknown>, keys: string[]): number | null {
   for (const k of keys) {
-    const v = obj[k];
+    const v = o[k];
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
   }

@@ -10,6 +10,11 @@ import { registerGetDomainProfile } from './get-domain-profile.js';
 import { registerCheckTxStatus } from './check-tx-status.js';
 import { registerGetPendingOffers } from './get-pending-offers.js';
 import { registerGetPortfolio } from './get-portfolio.js';
+import { registerTransferDomainTx } from './transfer-domain-tx.js';
+import { registerAcceptOfferTx } from './accept-offer-tx.js';
+import { registerCancelOfferTx } from './cancel-offer-tx.js';
+import { registerBurnDomainTx } from './burn-domain-tx.js';
+import { registerSendSignedTx } from './send-signed-tx.js';
 
 export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckDomains(server, deps);
@@ -18,4 +23,10 @@ export function registerAllTools(server: McpServer, deps: Deps): void {
   // Bước 1
   registerGetPendingOffers(server, deps);
   registerGetPortfolio(server, deps);
+  // Phase 4 — write path (build-tx-not-sign)
+  registerTransferDomainTx(server, deps);
+  registerAcceptOfferTx(server, deps);
+  registerCancelOfferTx(server, deps);
+  registerBurnDomainTx(server, deps);
+  registerSendSignedTx(server, deps);
 }

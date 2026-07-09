@@ -8,7 +8,9 @@ export interface WebUrlOptions {
 
 export function searchUrl(domain: string, opts: WebUrlOptions, refcode?: string | null): string {
   const u = new URL('/search', opts.webBase);
-  u.searchParams.set('prefill', domain);
+  // `?q=` is the param that actually runs the search + shows Register buttons;
+  // `?prefill=` only pre-fills the box without executing (verified live 2026-07).
+  u.searchParams.set('q', domain);
   if (refcode) u.searchParams.set('refcode', refcode);
   return u.toString();
 }

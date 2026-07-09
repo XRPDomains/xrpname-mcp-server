@@ -23,9 +23,6 @@ export interface Config {
   port: number;
   webBase: string;
   rateLimit: RateLimitConfig;
-  /** HS256 signing secret for access tokens (§7.3). null → auth disabled (dev). */
-  oauthJwtSecret: string | null;
-  oauthIssuer: string;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -56,7 +53,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       unauthPerWindow: num(env.RATE_LIMIT_UNAUTH_PER_MIN, 30),
       windowSec: num(env.RATE_LIMIT_WINDOW_SEC, 60),
     },
-    oauthJwtSecret: env.OAUTH_JWT_SECRET ?? null,
-    oauthIssuer: env.OAUTH_ISSUER ?? 'https://mcp.xrpdomains.xyz',
   };
 }

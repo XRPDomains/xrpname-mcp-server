@@ -37,6 +37,10 @@ export interface EndpointSet {
   getAllNames(address: string, page?: number, limit?: number): string;
   /** v2 (E25): owner → mint + incoming + outgoing pending in one atomic snapshot. */
   getPendingDomains(owner: string): string;
+  /** Backend order state for a domain (register-flow follow-up). */
+  getOrderByDomain(domain: string): string;
+  /** AI name recommendations (POST). Path only — body carries query/limit/tlds. */
+  aiRecommend(): string;
   /** v1 legacy (replaced by getPendingDomains). Kept for safety/back-compat. */
   getOfferByDestination(address: string): string;
   /** v1 legacy (replaced by getPendingDomains). */
@@ -60,6 +64,8 @@ const v1: EndpointSet = {
     `${v1Prefix}/getAllNames?address=${enc(address)}` +
     `${limit ? `&limit=${limit}` : ''}${page ? `&page=${page}` : ''}`,
   getPendingDomains: (owner) => `${v1Prefix}/getPendingDomains?owner=${enc(owner)}`,
+  getOrderByDomain: (domain) => `${v1Prefix}/getOrderbyDomain?domain=${enc(domain)}`,
+  aiRecommend: () => `/api/domains/AIRecommend`,
   getOfferByDestination: (address) =>
     `${v1Prefix}/getOfferByDestination?address=${enc(address)}`,
   getOfferByOwner: (address) => `${v1Prefix}/getOfferByOwner?address=${enc(address)}`,

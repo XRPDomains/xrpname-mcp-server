@@ -68,6 +68,66 @@ export class XrpDomainsApi {
     }
   }
 
+  private async postJson(path: string, body: unknown): Promise<unknown> {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(this.base + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (res.status >= 500) {
+        throw new McpToolError('BACKEND_UNAVAILABLE', 'XRPName is temporarily unavailable.');
+      }
+      if (!res.ok) throw new McpToolError('BACKEND_UNAVAILABLE', `Backend returned HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      if (err instanceof McpToolError) throw err;
+      throw new McpToolError('BACKEND_UNAVAILABLE', 'Could not reach xrpdomains.xyz backend.');
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  /** AI-recommended domain names for a keyword/theme. Returns raw suggestion rows. */
+  async recommendDomains(
+    query: string,
+    limit: number,
+    tlds: string[],
+  ): Promise<Array<{ name: string; tld: string; category: string | null }>> {
+    const json = (await this.postJson(this.endpoints.aiRecommend(), { query, limit, tlds })) as {
+      data?: unknown;
+    };
+    const rows = Array.isArray(json?.data) ? json.data : [];
+    const out: Array<{ name: string; tld: string; category: string | null }> = [];
+    for (const r of rows) {
+      const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
+      const name = pickString(o, ['Domain', 'domain', 'name']);
+      const tldRaw = pickString(o, ['Tld', 'tld', 'TLD']);
+      if (!name || !tldRaw) continue;
+      out.push({
+        name,
+        tld: tldRaw.startsWith('.') ? tldRaw : `.${tldRaw}`,
+        category: pickString(o, ['Category', 'category']),
+      });
+    }
+    return out;
+  }
+
+  /** Backend order state for a domain (null when no order on file). Cached 10s. */
+  async getOrderByDomain(domain: string): Promise<Record<string, unknown> | null> {
+    const key = `mcp:getOrderByDomain:${domain}`;
+    const cached = await this.cache.get<Record<string, unknown> | null>(key);
+    if (cached !== null) return cached;
+
+    const json = (await this.fetchJson(this.endpoints.getOrderByDomain(domain))) as { data?: unknown };
+    const data = json?.data && typeof json.data === 'object' ? (json.data as Record<string, unknown>) : null;
+    await this.cache.set(key, data, 10);
+    return data;
+  }
+
   /** Resolve domain → owner + nftoken_id + profile (+ history). Cached 60s (§12.2). */
   async getAddress(domain: string, includeHistory = false): Promise<DomainRecord> {
     const key = includeHistory ? `mcp:getAddress:${domain}:history` : `mcp:getAddress:${domain}`;

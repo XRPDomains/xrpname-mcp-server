@@ -6,7 +6,7 @@ Repo: <https://github.com/XRPDomains/xrpname-mcp-server>
 
 XRPL domain operations (`.xrp` / `.xrpl` / `.xrpfi` / `.rlusd`) for AI agents via the [Model Context Protocol](https://modelcontextprotocol.io). Check availability, look up profiles, manage portfolios and (later) build transfer/registration transactions — all from Claude, Codex, Cursor or any MCP client.
 
-**Status: Phase 4 (transfer flow).** Read tools: `check_domains`, `get_domain_profile`, `check_tx_status`, `get_pending_offers`, `get_portfolio`, `register_domain` (returns the website registration link). Write path (build-tx-not-sign): `transfer_domain_tx`, `accept_offer_tx`, `cancel_offer_tx`, `burn_domain_tx`, `send_signed_tx`. No private keys ever touch this server — signing always happens in the user's wallet.
+**Status: read-only + web-link (v0.1).** Tools: `check_domains`, `recommend_domain`, `get_domain_profile`, `check_tx_status`, `check_order_status`, `get_pending_offers`, `get_portfolio`, `register_domain`, `set_primary_domain`. The MCP builds NO transactions — all write actions (register, transfer, set-primary) are completed on xrpdomains.xyz where the wallet signs. No private keys ever touch this server.
 
 ## Quick start
 

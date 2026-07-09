@@ -22,16 +22,15 @@ src/lib/            domain-validator, pricing (mirror of search.html tiers),
                     api-endpoints (SINGLE source of truth for all REST paths —
                     v2 path changes happen here only; see "API versioning" below),
                     metrics (zero-dep Prometheus registry, §13.3),
-                    rate-limit (fixed-window via Cache, §12.1),
-                    tx-build (unsigned NFToken tx builders, §9),
-                    jwt + auth (HS256 token validation, §7)
+                    rate-limit (fixed-window via Cache, §12.1)
 src/types/deps.ts   dependency container; authAddress = DEV_ADDRESS now, OAuth JWT sub later
 ```
 
 ## Identity roadmap
 
-- **Bước 0–2 (now):** `DEV_ADDRESS` env stands in for the authenticated address. Read-only tools work unauthenticated.
-- **Bước 3:** OAuth 2.1 + PKCE (public client). `/authorize` page reuses the xrpdomains.xyz wallet kit; wallet signs a nonce; server mints JWT with `sub = XRPL address`. A Fastify preHandler resolves Bearer → `authAddress` per request.
+- **Now:** no auth. Read tools are unauthenticated over public data and take an explicit
+  `address`. `DEV_ADDRESS` (optional) only seeds rate-limit keying. OAuth was evaluated and
+  removed (see Phase status) — public read data needs no access control.
 
 ## v3 web app references (read-only)
 
@@ -99,6 +98,6 @@ set). `GET /metrics` exposes `mcp_requests_total{tool,outcome}`,
 - ✅ Bước 0: scaffold, stdio + HTTP transports, `check_domains`, `get_domain_profile`, `check_tx_status`, smoke test
 - ✅ Bước 1: `get_pending_offers` (address bắt buộc; incoming+outgoing in parallel) · `get_portfolio` (`GET /api/xrplnft/getAllNames?address=...`). **The endpoint returns TWO shapes** — a flat string list, or a paginated rich-object list (`nftoken_id`/`metadata.image`/`createtime`/`is_primary`). `src/lib/portfolio.ts` normalises both; the client follows pagination (cap 20 pages); the tool fills nftoken_id/image_url/minted_at/is_primary when available. Parser drops junk + keeps emoji/exotic TLD; `skipped`/`owner_total` surface backend data-quality gaps.
 - ✅ Bước 2: rate limiting (fixed-window qua Cache, Redis|memory) · `/metrics` Prometheus · CI hardened (Node 20+22 matrix, build step, npm cache, concurrency, non-blocking live smoke job)
-- 🔶 Bước 3: Chặng A ✅ — JWT HS256 (zero-dep, `src/lib/jwt.ts`) + Bearer→authAddress resolver (`src/lib/auth.ts`), wired per-request in `/mcp` (token invalid → 401; absent → DEV_ADDRESS). Chặng B ⬜ — `/authorize` + `/token` + `/revoke` (OAuth 2.1 PKCE) and the wallet-kit signing page (signature verify delegated to backend `/api/auth/*`).
-- 🔶 Bước 4: transfer flow shipped — `src/lib/tx-build.ts` (NFToken builders) + tools `transfer_domain_tx` (NFTokenCreateOffer sell), `accept_offer_tx`, `cancel_offer_tx`, `burn_domain_tx` (all build-tx-not-sign, `tx_hex_blob` via `xrpl.encode`, signer = `account` arg \|\| `authAddress` via `tools/_signer.ts`), and `send_signed_tx` (wraps `XrplClient.submitSignedBlob`). `register_domain` ✅ returns the xrpdomains.xyz registration **link** (availability + price + `register_url`) instead of building a Payment — on-chain registration needs a backend `createOrder` callback + exact price/memo match, too risky to build mainnet-side, so we delegate to the website's tested flow (same as SNS `web_register_url`). Next: `set_primary_domain_tx`. TODO: **testnet end-to-end verify** of the transfer/accept/cancel/burn flow; cache invalidation on tx success (§); Gem `walletPayload` shape vs v3.
+- ⬛ Bước 3 (OAuth): **removed by product decision** — the MCP is read-only over public data, so identity/auth adds no access control. Read tools take an explicit `address`; the deleted JWT/auth/PKCE/oauth code is gone. Rate limiting keys by IP (or DEV_ADDRESS if set). Revisit only if a "my domains" convenience (wallet login) is wanted later.
+- ⬛ Bước 4 (write path): **removed by product decision** — the MCP builds no transactions. All write actions delegate to the website: `register_domain` and `set_primary_domain` return xrpdomains.xyz **links** (register needs backend `createOrder`; set-primary needs auth'd `/api/xrplnft/setPrimary`), where the wallet signs. `web-fallback-url.ts` uses `?q=` (not `?prefill=`) — verified live 2026-07 that `?q=` runs the search + shows Register buttons. (The earlier `transfer/accept/cancel/burn/send_signed_tx` + `tx-build`/`tx-encode`/`tx-invalidate` code was deleted.)
 - ⬜ Bước 5: staging deploy `mcp-staging.xrpdomains.xyz`

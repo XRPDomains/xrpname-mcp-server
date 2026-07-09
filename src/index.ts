@@ -19,8 +19,6 @@ import { buildDeps, closeDeps } from './deps.js';
 import { loadConfig } from './config.js';
 import { metrics } from './lib/metrics.js';
 import { checkRateLimit, resolveLimit } from './lib/rate-limit.js';
-import { resolveBearer } from './lib/auth.js';
-import { McpToolError } from './lib/errors.js';
 
 /** Best-effort tool/method label for a JSON-RPC body, for metrics. */
 function requestLabel(body: unknown): string {
@@ -43,27 +41,9 @@ async function main(): Promise<void> {
   });
 
   app.post('/mcp', async (req, reply) => {
-    // Identity (§7.6) — resolve a Bearer access token to an XRPL address when a
-    // signing secret is configured. No token → DEV_ADDRESS fallback (dev).
-    // Token present but invalid → 401 with a WWW-Authenticate challenge.
-    let authAddress = deps.authAddress;
-    if (config.oauthJwtSecret) {
-      try {
-        const authCtx = resolveBearer(req.headers.authorization, config.oauthJwtSecret, config.oauthIssuer);
-        if (authCtx) authAddress = authCtx.address;
-      } catch (err) {
-        const message = err instanceof McpToolError ? err.message : 'Invalid access token';
-        return reply
-          .code(401)
-          .header('WWW-Authenticate', 'Bearer error="invalid_token"')
-          .send({ jsonrpc: '2.0', error: { code: -32001, message }, id: null });
-      }
-    }
-    const reqDeps = authAddress === deps.authAddress ? deps : { ...deps, authAddress };
-
-    // Rate limit (§12.1) — keyed by authenticated address when present, else IP.
+    // Rate limit (§12.1) — keyed by DEV_ADDRESS when set, else by IP.
     if (config.rateLimit.enabled) {
-      const { key, limit } = resolveLimit(config.rateLimit, authAddress, req.ip);
+      const { key, limit } = resolveLimit(config.rateLimit, deps.authAddress, req.ip);
       const rl = await checkRateLimit(deps.cache, key, limit, config.rateLimit.windowSec);
       reply.header('RateLimit-Limit', String(rl.limit));
       reply.header('RateLimit-Remaining', String(rl.remaining));
@@ -88,7 +68,7 @@ async function main(): Promise<void> {
     const startMs = Date.now();
     const label = requestLabel(req.body);
     let outcome: 'ok' | 'error' = 'ok';
-    const server = createMcpServer(reqDeps);
+    const server = createMcpServer(deps);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     reply.hijack();
     try {

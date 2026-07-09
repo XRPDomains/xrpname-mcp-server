@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Đóng gói XRPName MCP server thành 2 artifact cài đặt:
- *   bundle/xrpname-mcp.cjs   — bundle 1-file (Codex / Claude Code / config thủ công)
- *   xrpname-mcp.mcpb         — gói extension cho Claude Desktop
+ * Đóng gói XRPName MCP server thành các artifact cài đặt:
+ *   bundle/xrpname-mcp.cjs       — stdio 1-file (Codex / Claude Code / Desktop, local)
+ *   bundle/xrpname-mcp-http.cjs  — HTTP server 1-file (deploy remote: node <file> nghe :3000)
+ *   xrpname-mcp.mcpb             — gói extension cho Claude Desktop
  *
  * Dùng: npm run pack
  * Yêu cầu: đã `npm install` (esbuild nằm trong devDependencies).
@@ -18,7 +19,7 @@ const root = path.dirname(fileURLToPath(import.meta.url)) + '/..';
 const require = createRequire(import.meta.url);
 const pkg = require(path.join(root, 'package.json'));
 
-// 1) Bundle 1-file
+// 1) Bundle 1-file — stdio (local: Codex / Claude Code / Desktop)
 mkdirSync(path.join(root, 'bundle'), { recursive: true });
 await build({
   entryPoints: [path.join(root, 'src/stdio.ts')],
@@ -29,7 +30,20 @@ await build({
   outfile: path.join(root, 'bundle/xrpname-mcp.cjs'),
   logLevel: 'warning',
 });
-console.log('✓ bundle/xrpname-mcp.cjs');
+console.log('✓ bundle/xrpname-mcp.cjs (stdio)');
+
+// 1b) Bundle 1-file — HTTP server (remote: `node xrpname-mcp-http.cjs` → listens on PORT)
+// Copy this ONE file + a .env to the server; no `npm install` needed there.
+await build({
+  entryPoints: [path.join(root, 'src/index.ts')],
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node20',
+  outfile: path.join(root, 'bundle/xrpname-mcp-http.cjs'),
+  logLevel: 'warning',
+});
+console.log('✓ bundle/xrpname-mcp-http.cjs (HTTP server)');
 
 // 2) Gói .mcpb (zip: manifest.json + server/)
 const staging = path.join(root, '.mcpb-staging');

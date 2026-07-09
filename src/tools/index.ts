@@ -1,7 +1,8 @@
 /**
- * Tool registry. Buoc 0 ships 3 read tools; Buoc 1 adds get_portfolio +
- * get_pending_offers; Buoc 4 adds send_signed_tx. Phase 2+ tx-build tools
- * plug in here without touching server core.
+ * Tool registry. The MCP is read-only + web-link: discovery, profiles,
+ * portfolio, and links to complete write actions on xrpdomains.xyz. On-chain
+ * transaction building/broadcasting was removed — those actions happen on the
+ * website where the wallet signs.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Deps } from '../types/deps.js';
@@ -11,24 +12,18 @@ import { registerCheckTxStatus } from './check-tx-status.js';
 import { registerGetPendingOffers } from './get-pending-offers.js';
 import { registerGetPortfolio } from './get-portfolio.js';
 import { registerRegisterDomain } from './register-domain.js';
-import { registerTransferDomainTx } from './transfer-domain-tx.js';
-import { registerAcceptOfferTx } from './accept-offer-tx.js';
-import { registerCancelOfferTx } from './cancel-offer-tx.js';
-import { registerBurnDomainTx } from './burn-domain-tx.js';
-import { registerSendSignedTx } from './send-signed-tx.js';
+import { registerSetPrimaryDomain } from './set-primary-domain.js';
+import { registerRecommendDomain } from './recommend-domain.js';
+import { registerCheckOrderStatus } from './check-order-status.js';
 
 export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckDomains(server, deps);
+  registerRecommendDomain(server, deps);
   registerGetDomainProfile(server, deps);
   registerCheckTxStatus(server, deps);
-  registerRegisterDomain(server, deps);
-  // Bước 1
+  registerCheckOrderStatus(server, deps);
   registerGetPendingOffers(server, deps);
   registerGetPortfolio(server, deps);
-  // Phase 4 — write path (build-tx-not-sign)
-  registerTransferDomainTx(server, deps);
-  registerAcceptOfferTx(server, deps);
-  registerCancelOfferTx(server, deps);
-  registerBurnDomainTx(server, deps);
-  registerSendSignedTx(server, deps);
+  registerRegisterDomain(server, deps);
+  registerSetPrimaryDomain(server, deps);
 }

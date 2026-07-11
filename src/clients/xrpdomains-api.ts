@@ -1,10 +1,7 @@
 /**
  * Wrapper around the public xrpdomains.xyz REST API — pure consumer (§10).
- * Response shapes verified against v3/js/v3-nft-tx.js + API audit:
- *   GET /api/xrplnft/getAddress?domain=alice.xrp → { data: { owner: "r...", ... } }
- *   GET /api/xrplnft/getName?address=r...        → { data: "<domain or empty>" }
- *   GET /api/xrplnft/getOfferByDestination?address=r... (incoming offers)
- *   GET /api/xrplnft/getOfferByOwner?address=r...       (outgoing offers)
+ * Endpoints consumed: getAddress, checkDomains, getAllNames, getPendingDomains,
+ * getOrderbyDomain, and AIRecommend (paths in src/lib/api-endpoints.ts).
  */
 import { McpToolError } from '../lib/errors.js';
 import { ApiEndpoints, type EndpointSet } from '../lib/api-endpoints.js';
@@ -181,21 +178,6 @@ export class XrpDomainsApi {
     return result;
   }
 
-  /** Reverse: address → primary domain string. Cached 60s. */
-  async getName(address: string): Promise<string | null> {
-    const key = `mcp:getName:${address}`;
-    const cached = await this.cache.get<string | null>(key);
-    if (cached !== null) return cached || null;
-
-    const json = (await this.fetchJson(this.endpoints.getName(address))) as {
-      data?: unknown;
-    };
-
-    const name = typeof json?.data === 'string' ? json.data : '';
-    await this.cache.set(key, name, 60);
-    return name || null;
-  }
-
   /**
    * Domains owned by an address (portfolio). Normalises both backend response
    * shapes (flat strings | rich paginated objects) and follows pagination up to
@@ -273,33 +255,6 @@ export class XrpDomainsApi {
     };
     await this.cache.set(key, result, 10);
     return result;
-  }
-
-  /** Incoming offers (user is recipient). Cached 10s. @deprecated use getPendingDomains. */
-  async getOffersByDestination(address: string): Promise<unknown[]> {
-    return this.fetchOffers('getOfferByDestination', this.endpoints.getOfferByDestination(address), address);
-  }
-
-  /** Outgoing offers (user is sender/owner). Cached 10s. */
-  async getOffersByOwner(address: string): Promise<unknown[]> {
-    return this.fetchOffers('getOfferByOwner', this.endpoints.getOfferByOwner(address), address);
-  }
-
-  /**
-   * @param cacheName stable logical name for the cache key (version-independent,
-   *                  so cache keys don't shift if v2 renames the path).
-   * @param path      already-built request path from the endpoint registry.
-   */
-  private async fetchOffers(cacheName: string, path: string, address: string): Promise<unknown[]> {
-    const key = `mcp:${cacheName}:${address}`;
-    const cached = await this.cache.get<unknown[]>(key);
-    if (cached) return cached;
-
-    const json = (await this.fetchJson(path)) as { data?: unknown };
-
-    const list = Array.isArray(json?.data) ? json.data : [];
-    await this.cache.set(key, list, 10);
-    return list;
   }
 }
 

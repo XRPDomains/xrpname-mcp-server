@@ -31,8 +31,6 @@ export interface EndpointSet {
   getAddress(domain: string, includeHistory?: boolean): string;
   /** v2 (E26): batch availability check — `domain=A,B,C` → status per domain. */
   checkDomains(domains: string[]): string;
-  /** address → primary domain string. */
-  getName(address: string): string;
   /** address → domains owned by the wallet (portfolio). `page`/`limit` → enriched paginated shape. */
   getAllNames(address: string, page?: number, limit?: number): string;
   /** v2 (E25): owner → mint + incoming + outgoing pending in one atomic snapshot. */
@@ -41,10 +39,6 @@ export interface EndpointSet {
   getOrderByDomain(domain: string): string;
   /** AI name recommendations (POST). Path only — body carries query/limit/tlds. */
   aiRecommend(): string;
-  /** v1 legacy (replaced by getPendingDomains). Kept for safety/back-compat. */
-  getOfferByDestination(address: string): string;
-  /** v1 legacy (replaced by getPendingDomains). */
-  getOfferByOwner(address: string): string;
 }
 
 const enc = encodeURIComponent;
@@ -59,16 +53,12 @@ const v1: EndpointSet = {
   getAddress: (domain, includeHistory) =>
     `${v1Prefix}/getAddress?domain=${enc(domain)}${includeHistory ? '&include=history' : ''}`,
   checkDomains: (domains) => `${v1Prefix}/checkDomains?domain=${enc(domains.join(','))}`,
-  getName: (address) => `${v1Prefix}/getName?address=${enc(address)}`,
   getAllNames: (address, page, limit) =>
     `${v1Prefix}/getAllNames?address=${enc(address)}` +
     `${limit ? `&limit=${limit}` : ''}${page ? `&page=${page}` : ''}`,
   getPendingDomains: (owner) => `${v1Prefix}/getPendingDomains?owner=${enc(owner)}`,
   getOrderByDomain: (domain) => `${v1Prefix}/getOrderbyDomain?domain=${enc(domain)}`,
   aiRecommend: () => `/api/domains/AIRecommend`,
-  getOfferByDestination: (address) =>
-    `${v1Prefix}/getOfferByDestination?address=${enc(address)}`,
-  getOfferByOwner: (address) => `${v1Prefix}/getOfferByOwner?address=${enc(address)}`,
 };
 
 /**

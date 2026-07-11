@@ -69,33 +69,6 @@ export class XrplClient {
     }
   }
 
-  /** Buoc 4 — broadcast a signed blob. Validates hex shape before submit. */
-  async submitSignedBlob(signedTxBlob: string): Promise<{
-    tx_hash: string | null;
-    engine_result: string;
-    broadcast_at: string;
-  }> {
-    if (!/^[A-Fa-f0-9]+$/.test(signedTxBlob) || signedTxBlob.length < 50) {
-      throw new McpToolError('INVALID_INPUT', 'signed_tx_blob must be a hex-encoded signed XRPL transaction.');
-    }
-    const client = await this.ensureConnected();
-    try {
-      const r = await client.submit(signedTxBlob);
-      const engine = r.result.engine_result ?? 'unknown';
-      const hash =
-        (r.result.tx_json as { hash?: string } | undefined)?.hash ?? null;
-      if (engine !== 'tesSUCCESS' && !engine.startsWith('ter')) {
-        throw new McpToolError('LEDGER_REJECTED', `Transaction rejected by the XRPL ledger: ${engine}`);
-      }
-      return { tx_hash: hash, engine_result: engine, broadcast_at: new Date().toISOString() };
-    } catch (err) {
-      if (err instanceof McpToolError) throw err;
-      throw new McpToolError(
-        'XRPL_NETWORK_ERROR',
-        'Network error broadcasting transaction. The transaction was not submitted.',
-      );
-    }
-  }
 
   async isReachable(): Promise<boolean> {
     try {

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Đóng gói XRPName MCP server thành các artifact cài đặt:
- *   bundle/xrpname-mcp.cjs       — stdio 1-file (Codex / Claude Code / Desktop, local)
+ *   bundle/xrpname-mcp.cjs       — stdio 1-file (Codex / Claude Code, config thủ công)
  *   bundle/xrpname-mcp-http.cjs  — HTTP server 1-file (deploy remote: node <file> nghe :3000)
- *   xrpname-mcp.mcpb             — gói extension cho Claude Desktop
+ *   bundle/xrpname-mcp.mcpb      — gói extension cho Claude Desktop (install từ file)
  *
  * Dùng: npm run pack
  * Yêu cầu: đã `npm install` (esbuild nằm trong devDependencies).
@@ -88,7 +88,7 @@ const manifest = {
 writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
 // zip — dùng PowerShell trên Windows, `zip` trên *nix
-const out = path.join(root, 'xrpname-mcp.mcpb');
+const out = path.join(root, 'bundle/xrpname-mcp.mcpb');
 rmSync(out, { force: true });
 try {
   execFileSync('powershell', [
@@ -100,4 +100,4 @@ try {
   execFileSync('zip', ['-qr', out, 'manifest.json', 'server'], { cwd: staging, stdio: 'inherit' });
 }
 rmSync(staging, { recursive: true, force: true });
-console.log('✓ xrpname-mcp.mcpb (v' + pkg.version + ')');
+console.log('✓ bundle/xrpname-mcp.mcpb (v' + pkg.version + ')');

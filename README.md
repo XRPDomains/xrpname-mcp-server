@@ -22,24 +22,24 @@ Run without building: `npm run dev` (HTTP, port 3000) or `npm run dev:stdio`.
 ## Install in Claude Code
 
 ```bash
-# stdio (local, simplest)
-claude mcp add xrpname -- node C:/Users/PC/OneDrive/Develop/VibeCode/xrpname-mcp-server/dist/stdio.js
+# npx (once published to npm — simplest, no clone)
+claude mcp add xrpname -- npx -y @xrpname/xrpname-mcp
 
-# or HTTP (run `npm start` first)
-claude mcp add --transport http xrpname http://localhost:3000/mcp
+# stdio from a local build
+claude mcp add xrpname -- node ./dist/stdio.js
+
+# or HTTP (hosted / run `npm start` first)
+claude mcp add --transport http xrpname https://xrpdomains.xyz/mcp
 ```
 
 ## Install in Claude Desktop
 
-`claude_desktop_config.json` → `mcpServers`:
+Install the `bundle/xrpname-mcp.mcpb` extension (Settings → Extensions → Install from file), or add to `claude_desktop_config.json` → `mcpServers`:
 
 ```json
 {
   "mcpServers": {
-    "xrpname": {
-      "command": "node",
-      "args": ["C:/Users/PC/OneDrive/Develop/VibeCode/xrpname-mcp-server/dist/stdio.js"]
-    }
+    "xrpname": { "command": "npx", "args": ["-y", "@xrpname/xrpname-mcp"] }
   }
 }
 ```
@@ -50,8 +50,8 @@ claude mcp add --transport http xrpname http://localhost:3000/mcp
 
 ```toml
 [mcp_servers.xrpname]
-command = "node"
-args = ["C:/Users/PC/OneDrive/Develop/VibeCode/xrpname-mcp-server/dist/stdio.js"]
+command = "npx"
+args = ["-y", "@xrpname/xrpname-mcp"]
 ```
 
 Then try: *"Is nftcafe.xrp available, and how much would it cost?"*

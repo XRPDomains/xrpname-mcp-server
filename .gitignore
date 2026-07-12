@@ -27,3 +27,8 @@ bundle/
 # scratch / verification harnesses
 .tcheck/
 .tcheck2/
+
+# mcp-publisher CLI (download locally, don't commit)
+mcp-publisher
+mcp-publisher.exe
+mcp-publisher*.tar.gz

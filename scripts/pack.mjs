@@ -88,7 +88,7 @@ const manifest = {
   ],
   user_config: {},
   keywords: ['xrpl', 'domains', 'xrp', 'nft', 'xrpdomains'],
-  license: 'UNLICENSED',
+  license: 'MIT',
   compatibility: { platforms: ['win32', 'darwin', 'linux'], runtimes: { node: '>=18.0.0' } },
 };
 writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2));

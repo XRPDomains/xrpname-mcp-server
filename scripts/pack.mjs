@@ -57,8 +57,8 @@ const manifest = {
   display_name: 'XRPName MCP',
   version: pkg.version,
   description:
-    'XRPL domains (.xrp / .xrpl / .xrpfi / .rlusd) — check availability, pricing, profiles, ' +
-    'tx status, portfolio and pending offers.',
+    'XRPL domains (.xrp / .xrpl / .xrpfi / .rlusd) — check availability, AI name ideas, ' +
+    'profiles, portfolio, pending offers, order status, and register/manage links.',
   author: { name: 'XRPDomains', url: 'https://xrpdomains.xyz' },
   homepage: 'https://xrpdomains.xyz',
   server: {
@@ -67,25 +67,20 @@ const manifest = {
     mcp_config: {
       command: 'node',
       args: ['${__dirname}/server/xrpname-mcp.cjs'],
-      env: { DEV_ADDRESS: '${user_config.dev_address}' },
     },
   },
   tools: [
     { name: 'check_domains', description: 'Check 1-25 XRPL domains for availability, pricing and owner' },
-    { name: 'get_domain_profile', description: 'Full public profile of a domain (owner, metadata, socials)' },
+    { name: 'recommend_domain', description: 'AI-recommended domain name ideas for a keyword/theme' },
+    { name: 'get_domain_profile', description: 'Full public profile of a domain (owner, metadata, socials, history)' },
     { name: 'check_tx_status', description: 'Validation status of an XRPL transaction by hash' },
-    { name: 'get_pending_offers', description: 'Pending incoming/outgoing NFToken offers for a wallet' },
+    { name: 'check_order_status', description: 'Backend order status for a domain you tried to register' },
+    { name: 'get_pending_offers', description: 'Pending mint/incoming/outgoing operations for a wallet' },
     { name: 'get_portfolio', description: 'All XRPL domains owned by a wallet address' },
+    { name: 'register_domain', description: 'Link to register a domain on xrpdomains.xyz' },
+    { name: 'set_primary_domain', description: 'Link to set a domain as the wallet primary' },
   ],
-  user_config: {
-    dev_address: {
-      type: 'string',
-      title: 'XRPL Address (dev)',
-      description: 'Optional. Your XRPL r... address — stands in for wallet auth until OAuth ships.',
-      required: false,
-      default: '',
-    },
-  },
+  user_config: {},
   keywords: ['xrpl', 'domains', 'xrp', 'nft', 'xrpdomains'],
   license: 'UNLICENSED',
   compatibility: { platforms: ['win32', 'darwin', 'linux'], runtimes: { node: '>=18.0.0' } },

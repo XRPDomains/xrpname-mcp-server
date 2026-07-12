@@ -9,7 +9,7 @@
  * Yêu cầu: đã `npm install` (esbuild nằm trong devDependencies).
  */
 import { build } from 'esbuild';
-import { mkdirSync, rmSync, cpSync, writeFileSync, createWriteStream } from 'node:fs';
+import { mkdirSync, rmSync, cpSync, writeFileSync, createWriteStream, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -51,6 +51,11 @@ rmSync(staging, { recursive: true, force: true });
 mkdirSync(path.join(staging, 'server'), { recursive: true });
 cpSync(path.join(root, 'bundle/xrpname-mcp.cjs'), path.join(staging, 'server/xrpname-mcp.cjs'));
 
+// Optional icon — drop a square PNG at assets/icon.png (256×256 recommended).
+const iconSrc = path.join(root, 'assets/icon.png');
+const hasIcon = existsSync(iconSrc);
+if (hasIcon) cpSync(iconSrc, path.join(staging, 'icon.png'));
+
 const manifest = {
   manifest_version: '0.3',
   name: 'xrpname-mcp',
@@ -61,6 +66,7 @@ const manifest = {
     'profiles, portfolio, pending offers, order status, and register/manage links.',
   author: { name: 'XRPDomains', url: 'https://xrpdomains.xyz' },
   homepage: 'https://xrpdomains.xyz',
+  ...(hasIcon ? { icon: 'icon.png' } : {}),
   server: {
     type: 'node',
     entry_point: 'server/xrpname-mcp.cjs',

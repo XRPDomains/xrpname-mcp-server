@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.XRPDomains/xrpname-mcp-server",
+  "description": "XRPL domains (.xrp / .xrpl / .xrpfi / .rlusd) — check availability, AI name ideas, profiles, portfolio, pending offers, order status, and register/manage links.",
+  "repository": {
+    "url": "https://github.com/XRPDomains/xrpname-mcp-server",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@xrpname/xrpname-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://xrpdomains.xyz/mcp"
+    }
+  ]
+}

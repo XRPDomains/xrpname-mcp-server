@@ -1,19 +1,42 @@
 {
   "name": "@xrpname/xrpname-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "XRPName MCP Server — XRPL domain operations (.xrp / .xrpl / .xrpfi / .rlusd) for AI agents via Model Context Protocol",
   "mcpName": "io.github.XRPDomains/xrpname-mcp-server",
-  "repository": { "type": "git", "url": "git+https://github.com/XRPDomains/xrpname-mcp-server.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XRPDomains/xrpname-mcp-server.git"
+  },
   "homepage": "https://xrpdomains.xyz",
-  "bugs": { "url": "https://github.com/XRPDomains/xrpname-mcp-server/issues" },
-  "keywords": ["mcp", "model-context-protocol", "xrpl", "xrp", "domains", "nft", "xrpdomains"],
+  "bugs": {
+    "url": "https://github.com/XRPDomains/xrpname-mcp-server/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "xrpl",
+    "xrp",
+    "domains",
+    "nft",
+    "xrpdomains"
+  ],
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "main": "dist/index.js",
-  "bin": { "xrpname-mcp": "bin/cli.mjs" },
-  "files": ["dist", "bin", "README.md"],
-  "publishConfig": { "access": "public" },
+  "bin": {
+    "xrpname-mcp": "bin/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:stdio": "tsx src/stdio.ts",
@@ -50,4 +73,3 @@
     "vitest": "^2.0.5"
   }
 }
-

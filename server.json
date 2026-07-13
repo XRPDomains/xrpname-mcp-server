@@ -1,18 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.XRPDomains/xrpname-mcp-server",
+  "title": "XRPName",
   "description": "XRPL domains for AI agents — availability, pricing, profiles, portfolio, and register links.",
+  "websiteUrl": "https://xrpdomains.xyz/agent",
   "repository": {
     "url": "https://github.com/XRPDomains/xrpname-mcp-server",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@xrpname/xrpname-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       }

@@ -7,7 +7,7 @@ import { registerAllTools } from './tools/index.js';
 import type { Deps } from './types/deps.js';
 
 export const SERVER_NAME = 'xrpname-mcp';
-export const SERVER_VERSION = '0.1.2';
+export const SERVER_VERSION = '0.1.3';
 
 export function createMcpServer(deps: Deps): McpServer {
   const server = new McpServer({

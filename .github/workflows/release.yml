@@ -1,25 +1,40 @@
 name: Release
 
-# Push a version tag (e.g. v0.1.0) → build + pack → GitHub Release with the
-# .mcpb + single-file bundles attached, so users can "install from file".
+# Push a version tag (e.g. v0.1.3) → build + test → publish npm → GitHub Release
+# with the .mcpb + single-file bundles → publish to the MCP Registry (via OIDC,
+# no stored token). One tag push ships every channel from the SAME commit, so
+# npm / registry / release bundles can never drift apart again.
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: write # create the GitHub Release
+  id-token: write # OIDC auth for the MCP Registry
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          registry-url: https://registry.npmjs.org # sets up npm auth for publish
+
       - run: npm ci
       - run: npm run build
+      - run: npm test
+
+      # 1) npm — the package the registry verifies ownership against.
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 2) GitHub Release with the single-file + .mcpb bundles (built fresh).
       - run: npm run pack
       - name: Create release + attach bundle artifacts
         env:
@@ -31,3 +46,13 @@ jobs:
             bundle/xrpname-mcp-http.cjs \
             --title "XRPName MCP ${{ github.ref_name }}" \
             --generate-notes
+
+      # 3) MCP Registry — OIDC, no secret. Authenticates as this org repo, so it
+      #    is granted the io.github.XRPDomains/* namespace automatically.
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

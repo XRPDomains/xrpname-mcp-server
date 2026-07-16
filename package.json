@@ -1,6 +1,6 @@
 {
   "name": "@xrpname/xrpname-mcp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "XRPName MCP Server — XRPL domain operations (.xrp / .xrpl / .xrpfi / .rlusd) for AI agents via Model Context Protocol",
   "mcpName": "io.github.XRPDomains/xrpname-mcp-server",
   "repository": {

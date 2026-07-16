@@ -11,6 +11,13 @@ export interface RateLimitConfig {
   windowSec: number;
 }
 
+export interface AnalyticsConfig {
+  enabled: boolean;
+  file: string;
+  /** When set, `/mcp/stats.json?token=…` returns the detailed snapshot. */
+  token: string | null;
+}
+
 export interface Config {
   apiBase: string;
   xrplWssUrl: string;
@@ -23,6 +30,7 @@ export interface Config {
   port: number;
   webBase: string;
   rateLimit: RateLimitConfig;
+  analytics: AnalyticsConfig;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -52,6 +60,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       readPerWindow: num(env.RATE_LIMIT_READ_PER_MIN, 60),
       unauthPerWindow: num(env.RATE_LIMIT_UNAUTH_PER_MIN, 30),
       windowSec: num(env.RATE_LIMIT_WINDOW_SEC, 60),
+    },
+    analytics: {
+      enabled: bool(env.MCP_ANALYTICS_ENABLED, true),
+      file: env.MCP_ANALYTICS_FILE ?? './data/analytics.json',
+      token: env.MCP_STATS_TOKEN ?? null,
     },
   };
 }

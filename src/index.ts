@@ -19,18 +19,51 @@ import { buildDeps, closeDeps } from './deps.js';
 import { loadConfig } from './config.js';
 import { metrics } from './lib/metrics.js';
 import { checkRateLimit, resolveLimit } from './lib/rate-limit.js';
+import { Analytics } from './lib/analytics.js';
+import { STATS_HTML } from './lib/stats-page.js';
 
-/** Best-effort tool/method label for a JSON-RPC body, for metrics. */
-function requestLabel(body: unknown): string {
-  const b = body as { method?: unknown; params?: { name?: unknown } } | undefined;
-  if (b?.method === 'tools/call' && typeof b.params?.name === 'string') return b.params.name;
-  return typeof b?.method === 'string' ? b.method : 'unknown';
+/** Parsed view of a JSON-RPC body used by both metrics and analytics. */
+interface ParsedReq {
+  method: string;
+  tool: string | null;
+  agentName: string | null;
+  agentVersion: string | null;
+}
+
+function parseReq(body: unknown): ParsedReq {
+  const b = body as
+    | { method?: unknown; params?: { name?: unknown; clientInfo?: { name?: unknown; version?: unknown } } }
+    | undefined;
+  const method = typeof b?.method === 'string' ? b.method : 'unknown';
+  const tool = method === 'tools/call' && typeof b?.params?.name === 'string' ? b.params.name : null;
+  const ci = method === 'initialize' ? b?.params?.clientInfo : undefined;
+  return {
+    method,
+    tool,
+    agentName: typeof ci?.name === 'string' ? ci.name : null,
+    agentVersion: typeof ci?.version === 'string' ? ci.version : null,
+  };
+}
+
+/** Metrics label: tool name for tools/call, else the method. */
+function requestLabel(p: ParsedReq): string {
+  return p.tool ?? p.method;
+}
+
+/** Real client IP behind Cloudflare/IIS reverse proxy. */
+function clientIp(req: { headers: Record<string, unknown>; ip: string }): string {
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string' && cf) return cf;
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff) return (xff.split(',')[0] ?? '').trim() || req.ip;
+  return req.ip;
 }
 
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = pino({ level: config.logLevel });
   const deps = buildDeps(config);
+  const analytics = new Analytics({ file: config.analytics.file, enabled: config.analytics.enabled });
 
   const app = Fastify({ logger: false });
   await app.register(cors, {
@@ -41,6 +74,7 @@ async function main(): Promise<void> {
   });
 
   app.post('/mcp', async (req, reply) => {
+    const parsed = parseReq(req.body);
     // Rate limit (§12.1) — keyed by DEV_ADDRESS when set, else by IP.
     if (config.rateLimit.enabled) {
       const { key, limit } = resolveLimit(config.rateLimit, deps.authAddress, req.ip);
@@ -49,7 +83,8 @@ async function main(): Promise<void> {
       reply.header('RateLimit-Remaining', String(rl.remaining));
       reply.header('RateLimit-Reset', String(rl.resetSec));
       if (!rl.allowed) {
-        metrics.recordRequest(requestLabel(req.body), 'error', 0);
+        metrics.recordRequest(requestLabel(parsed), 'error', 0);
+        analytics.record({ method: parsed.method, tool: parsed.tool, outcome: 'error' });
         return reply
           .code(429)
           .header('Retry-After', String(rl.retryAfterSec))
@@ -66,7 +101,8 @@ async function main(): Promise<void> {
 
     // Stateless: new server + transport per request.
     const startMs = Date.now();
-    const label = requestLabel(req.body);
+    const label = requestLabel(parsed);
+    const ip = clientIp(req);
     let outcome: 'ok' | 'error' = 'ok';
     const server = createMcpServer(deps);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -76,12 +112,28 @@ async function main(): Promise<void> {
       await transport.handleRequest(req.raw, reply.raw, req.body);
       reply.raw.on('close', () => {
         metrics.recordRequest(label, outcome, (Date.now() - startMs) / 1000);
+        analytics.record({
+          method: parsed.method,
+          tool: parsed.tool,
+          outcome,
+          agentName: parsed.agentName,
+          agentVersion: parsed.agentVersion,
+          ip,
+        });
         void transport.close();
         void server.close();
       });
     } catch (err) {
       outcome = 'error';
       metrics.recordRequest(label, 'error', (Date.now() - startMs) / 1000);
+      analytics.record({
+        method: parsed.method,
+        tool: parsed.tool,
+        outcome: 'error',
+        agentName: parsed.agentName,
+        agentVersion: parsed.agentVersion,
+        ip,
+      });
       logger.error({ err }, 'mcp request failed');
       if (!reply.raw.headersSent) {
         reply.raw.writeHead(500, { 'Content-Type': 'application/json' });
@@ -129,8 +181,25 @@ async function main(): Promise<void> {
       .send(metrics.render()),
   );
 
+  // --- Usage dashboard (reachable via the existing /mcp reverse-proxy rule) ---
+  // JSON feed: public summary, or detailed when ?token= matches MCP_STATS_TOKEN.
+  app.get('/mcp/stats.json', async (req, reply) => {
+    const token = (req.query as { token?: unknown } | undefined)?.token;
+    const detail = Boolean(config.analytics.token) && token === config.analytics.token;
+    return reply
+      .code(200)
+      .header('Cache-Control', 'no-store')
+      .header('Access-Control-Allow-Origin', '*')
+      .send(analytics.snapshot(detail));
+  });
+  // Lightweight HTML dashboard.
+  app.get('/mcp/stats', async (_req, reply) =>
+    reply.code(200).header('Content-Type', 'text/html; charset=utf-8').send(STATS_HTML),
+  );
+
   const shutdown = async () => {
     logger.info('shutting down');
+    analytics.flush();
     await app.close();
     await closeDeps(deps);
     process.exit(0);

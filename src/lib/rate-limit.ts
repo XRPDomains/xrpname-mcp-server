@@ -4,7 +4,7 @@
  * dependency and works in both transports.
  *
  * Limits (per minute):
- *   - authenticated address, READ tools: 60   (TX/WRITE tiers arrive Bước 4)
+ *   - authenticated address, READ tools: 60
  *   - unauthenticated, per IP:           30   (only check_domains is unauth)
  *
  * The window is fixed: all calls in the same wall-clock window share one
@@ -64,7 +64,7 @@ export async function checkRateLimit(
 /**
  * Resolve the limit key + budget for a request given the identity we have.
  * Authenticated address takes precedence over IP; this is the seam OAuth
- * (Bước 3) plugs into — pass the resolved address as `authAddress`.
+ * plugs into — pass the resolved address as `authAddress`.
  */
 export function resolveLimit(
   cfg: RateLimitConfig,

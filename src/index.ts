@@ -28,11 +28,15 @@ interface ParsedReq {
   tool: string | null;
   agentName: string | null;
   agentVersion: string | null;
+  args: unknown;
 }
 
 function parseReq(body: unknown): ParsedReq {
   const b = body as
-    | { method?: unknown; params?: { name?: unknown; clientInfo?: { name?: unknown; version?: unknown } } }
+    | {
+        method?: unknown;
+        params?: { name?: unknown; arguments?: unknown; clientInfo?: { name?: unknown; version?: unknown } };
+      }
     | undefined;
   const method = typeof b?.method === 'string' ? b.method : 'unknown';
   const tool = method === 'tools/call' && typeof b?.params?.name === 'string' ? b.params.name : null;
@@ -42,6 +46,7 @@ function parseReq(body: unknown): ParsedReq {
     tool,
     agentName: typeof ci?.name === 'string' ? ci.name : null,
     agentVersion: typeof ci?.version === 'string' ? ci.version : null,
+    args: tool ? b?.params?.arguments : undefined,
   };
 }
 
@@ -103,6 +108,7 @@ async function main(): Promise<void> {
     const startMs = Date.now();
     const label = requestLabel(parsed);
     const ip = clientIp(req);
+    const ua = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null;
     let outcome: 'ok' | 'error' = 'ok';
     const server = createMcpServer(deps);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -119,6 +125,8 @@ async function main(): Promise<void> {
           agentName: parsed.agentName,
           agentVersion: parsed.agentVersion,
           ip,
+          ua,
+          args: parsed.args,
         });
         void transport.close();
         void server.close();
@@ -133,6 +141,8 @@ async function main(): Promise<void> {
         agentName: parsed.agentName,
         agentVersion: parsed.agentVersion,
         ip,
+        ua,
+        args: parsed.args,
       });
       logger.error({ err }, 'mcp request failed');
       if (!reply.raw.headersSent) {

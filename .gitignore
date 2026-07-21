@@ -33,7 +33,13 @@ bundle/
 
 # stray/accidental empty files from shell redirects
 /27372
-/tạo
+
+# internal working documents (kept locally, not published in the public repo)
+/GIT-SETUP.md
+/specs/
+/docs/agent-page-content.md
+/docs/MCP-Endpoints-Handoff-*.md
+/docs/MCP-Server-Audit-*.md
 
 # mcp-publisher CLI (download locally, don't commit)
 mcp-publisher

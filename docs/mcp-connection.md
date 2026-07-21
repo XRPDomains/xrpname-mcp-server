@@ -260,6 +260,9 @@ curl https://xrpdomains.xyz/metrics   # Prometheus format
 
 Human-readable usage stats — connections (installs/sessions), unique clients,
 tool-call counts, agent breakdown — with daily / weekly / monthly roll-up.
+Agents are split into **real clients** (Claude Code, Codex, Antigravity, Cursor…)
+and **directory / health probes** (crawlers that only scan the endpoint), and
+tool calls are attributed to the calling client, so real usage is legible.
 
 - **Dashboard:** `https://xrpdomains.xyz/mcp/stats`
 - **JSON feed:** `https://xrpdomains.xyz/mcp/stats.json`

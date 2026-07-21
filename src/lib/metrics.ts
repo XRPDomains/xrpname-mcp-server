@@ -10,7 +10,7 @@
  *   mcp_requests_total{tool,outcome}        counter
  *   mcp_request_duration_seconds            histogram (global)
  *   mcp_cache_events_total{result}          counter  (hit|miss)
- *   mcp_xrpl_submit_total{result}           counter  (success|failure) — Bước 4
+ *   mcp_xrpl_submit_total{result}           counter  (success|failure)
  *   process_uptime_seconds                  gauge
  */
 
@@ -44,7 +44,7 @@ export class Metrics {
     this.bump(`mcp_cache_events_total|result=${result}`);
   }
 
-  /** Record an XRPL submit outcome (Bước 4). */
+  /** Record an XRPL submit outcome. */
   recordXrplSubmit(result: 'success' | 'failure'): void {
     this.bump(`mcp_xrpl_submit_total|result=${result}`);
   }

@@ -58,6 +58,12 @@ export const STATS_HTML = `<!doctype html>
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
     border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted)}
+  .subhead{font-size:13px;font-weight:700;color:var(--txt);margin:2px 0 8px;
+    display:flex;align-items:center;gap:8px}
+  .scrolly{max-height:340px;overflow-y:auto;overflow-x:hidden}
+  .scrolly thead th{position:sticky;top:0;background:var(--panel);z-index:1}
+  .scrolly::-webkit-scrollbar{width:8px}
+  .scrolly::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
   .foot{color:var(--muted);font-size:12px;margin-top:16px}
   a{color:var(--accent);text-decoration:none}
   .empty{color:var(--muted);text-align:center;padding:40px 0}
@@ -88,6 +94,11 @@ export const STATS_HTML = `<!doctype html>
     <div class="empty" id="lineEmpty" style="display:none">No data yet.</div>
   </div>
 
+  <div class="panel">
+    <h3>Recent tool calls</h3>
+    <div id="recent" class="scrolly"></div>
+  </div>
+
   <div class="grid2">
     <div class="panel">
       <h3>Tool calls by tool</h3>
@@ -95,8 +106,8 @@ export const STATS_HTML = `<!doctype html>
       <div class="empty" id="toolEmpty" style="display:none">No tool calls yet.</div>
     </div>
     <div class="panel">
-      <h3>Agents (by connections)</h3>
-      <div id="agents"></div>
+      <h3>Clients &amp; probes</h3>
+      <div id="agents" class="scrolly"></div>
     </div>
   </div>
 
@@ -137,11 +148,13 @@ export const STATS_HTML = `<!doctype html>
 
   function renderCards(){
     var t = data.totals || {};
+    var real = (t.realConnections!=null? t.realConnections : t.connections);
+    var probeN = (t.probeConnections!=null? t.probeConnections : 0);
     var errRate = t.toolCalls ? ((t.errors||0)/ (t.toolCalls+ (t.connections||0)) *100) : 0;
     var cards = [
-      {k:'Connections', v:n(t.connections), d:'initialize calls (installs/sessions)'},
+      {k:'Client connections', v:n(real), d:'real clients · excl. '+n(probeN)+' probe conns'},
       {k:'Unique clients', v:n(t.uniqueClientsLast30d), d:'last 30 days'},
-      {k:'Tool calls', v:n(t.toolCalls), d:(t.tools||0)+' distinct tools'},
+      {k:'Client tool calls', v:n(t.clientToolCalls!=null? t.clientToolCalls : t.toolCalls), d:n(t.toolCalls)+' total incl. probes'},
       {k:'Error rate', v:errRate.toFixed(1)+'%', d:n(t.errors)+' errors total'}
     ];
     el('cards').innerHTML = cards.map(function(c){
@@ -191,17 +204,49 @@ export const STATS_HTML = `<!doctype html>
     });
   }
 
-  function renderAgents(){
-    var a = data.agents||[];
-    if(a.length === 0){ el('agents').innerHTML = '<div class="empty">No agents yet.</div>'; return; }
-    var rows = a.slice(0,12).map(function(x){
-      return '<tr><td>'+x.name+'</td><td class="num">'+n(x.connections)+'</td></tr>';
+  function agentTable(list){
+    var rows = list.slice(0,15).map(function(x){
+      return '<tr><td>'+x.name+'</td><td class="num">'+n(x.toolCalls||0)+'</td><td class="num">'+n(x.connections)+'</td></tr>';
     }).join('');
-    el('agents').innerHTML = '<table><thead><tr><th>Agent</th><th class="num">Connections</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    return '<table><thead><tr><th>Agent</th><th class="num">Tool calls</th><th class="num">Conns</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+  function renderAgents(){
+    // prefer server-split lists; fall back to classifying the flat list here
+    var clients = data.clients, probes = data.probes;
+    if(!clients || !probes){
+      var a = data.agents||[]; clients=[]; probes=[];
+      a.forEach(function(x){ (x.kind==='probe'?probes:clients).push(x); });
+    }
+    var html = '';
+    html += '<div class="subhead">✅ Clients <span class="pill">real usage</span></div>';
+    html += (clients.length? agentTable(clients) : '<div class="empty">No client traffic yet.</div>');
+    html += '<div class="subhead" style="margin-top:18px">🤖 Directory / health probes</div>';
+    html += (probes.length? agentTable(probes) : '<div class="empty">None.</div>');
+    el('agents').innerHTML = html;
   }
 
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function ago(ts){
+    var d=Math.max(0,(Date.now()-ts)/1000);
+    if(d<60) return Math.floor(d)+'s ago';
+    if(d<3600) return Math.floor(d/60)+'m ago';
+    if(d<86400) return Math.floor(d/3600)+'h ago';
+    return Math.floor(d/86400)+'d ago';
+  }
+  function renderRecent(){
+    var r = data.recent||[];
+    if(r.length===0){ el('recent').innerHTML='<div class="empty">No tool calls yet.</div>'; return; }
+    var rows = r.slice(0,20).map(function(x){
+      var badge = x.outcome==='error' ? '<span class="pill" style="color:var(--danger)">error</span>' : '';
+      return '<tr><td style="white-space:nowrap;color:var(--muted)">'+ago(x.ts)+'</td>'+
+        '<td><strong>'+esc(x.tool)+'</strong> '+badge+'</td>'+
+        '<td style="color:var(--muted)">'+esc(x.agent||'—')+'</td>'+
+        '<td><code style="font-size:12px;color:#9fb4d8;word-break:break-all">'+esc(x.args||'')+'</code></td></tr>';
+    }).join('');
+    el('recent').innerHTML='<table><thead><tr><th>When</th><th>Tool</th><th>Client</th><th>Arguments</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
   function renderAll(){
-    renderCards(); renderLine(); renderTools(); renderAgents();
+    renderCards(); renderLine(); renderTools(); renderAgents(); renderRecent();
     var when = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : '';
     el('sub').textContent = 'since ' + (data.since||'—') + (token ? ' · detailed view' : '');
     el('foot').innerHTML = 'Updated ' + when + ' · endpoint <a href="https://xrpdomains.xyz/agent">xrpdomains.xyz/agent</a> · read-only, no PII stored.';

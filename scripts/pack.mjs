@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Đóng gói XRPName MCP server thành các artifact cài đặt:
- *   bundle/xrpname-mcp.cjs       — stdio 1-file (Codex / Claude Code, config thủ công)
- *   bundle/xrpname-mcp-http.cjs  — HTTP server 1-file (deploy remote: node <file> nghe :3000)
- *   bundle/xrpname-mcp.mcpb      — gói extension cho Claude Desktop (install từ file)
+ * Packages the XRPName MCP server into installable artifacts:
+ *   bundle/xrpname-mcp.cjs       — single-file stdio server (Codex / Claude Code, manual config)
+ *   bundle/xrpname-mcp-http.cjs  — single-file HTTP server (remote deploy: node <file> listens on :3000)
+ *   bundle/xrpname-mcp.mcpb      — Claude Desktop extension bundle (install from file)
  *
- * Dùng: npm run pack
- * Yêu cầu: đã `npm install` (esbuild nằm trong devDependencies).
+ * Usage: npm run pack
+ * Requires: `npm install` first (esbuild is a devDependency).
  */
 import { build } from 'esbuild';
 import { mkdirSync, rmSync, cpSync, writeFileSync, createWriteStream, existsSync } from 'node:fs';
@@ -45,7 +45,7 @@ await build({
 });
 console.log('✓ bundle/xrpname-mcp-http.cjs (HTTP server)');
 
-// 2) Gói .mcpb (zip: manifest.json + server/)
+// 2) .mcpb bundle (zip: manifest.json + server/)
 const staging = path.join(root, '.mcpb-staging');
 rmSync(staging, { recursive: true, force: true });
 mkdirSync(path.join(staging, 'server'), { recursive: true });
@@ -93,7 +93,7 @@ const manifest = {
 };
 writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-// zip — dùng PowerShell trên Windows, `zip` trên *nix
+// zip — PowerShell on Windows, `zip` on *nix
 const out = path.join(root, 'bundle/xrpname-mcp.mcpb');
 rmSync(out, { force: true });
 try {

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseDomain, type InvalidDomain } from '../lib/domain-validator.js';
 import { priceXrp } from '../lib/pricing.js';
+import { priceXrpFromTable, priceRlusd } from '../lib/pricing-source.js';
 import { searchUrl, profileUrl } from '../lib/web-fallback-url.js';
 import { toErrorResult } from '../lib/errors.js';
 import type { Deps } from '../types/deps.js';
@@ -20,7 +21,7 @@ export function registerCheckDomains(server: McpServer, deps: Deps): void {
         'Use for questions like "is <name>.xrp taken?", "how much does <name>.xrp cost?", ' +
         '"who owns <name>.xrp?", or to verify availability before registering. ' +
         'Accepts .xrp, .xrpl, .xrpfi, .rlusd TLDs (defaults to .xrp when omitted). ' +
-        'Returns availability, pricing, owner address, profile metadata if registered, ' +
+        'Returns availability, price in XRP and RLUSD, owner address, profile metadata if registered, ' +
         'and a web URL for the user to register if available. ' +
         'Also returns invalid_domains for inputs that fail validation.',
       inputSchema: {
@@ -54,18 +55,30 @@ export function registerCheckDomains(server: McpServer, deps: Deps): void {
           profiles.set(d.domain, record.profile);
         });
 
+        // Live pricing (source of truth). Falls back to the local mirror if the
+        // pricing table can't be fetched. RLUSD rate is best-effort.
+        const pricing = await deps.api.getPricing();
+        const xrpUsd = pricing ? await deps.api.getXrpUsdRate(pricing) : null;
+        const xrpPrice = (d: { tld: string; length: number; isSubname: boolean }): number => {
+          const live = pricing ? priceXrpFromTable(pricing, d.tld, d.length, d.isSubname) : null;
+          return (
+            live ??
+            priceXrp(d.length, d.isSubname, {
+              basePriceXrp: deps.config.basePriceXrp,
+              discountPercent: deps.config.discountPercent,
+            })
+          );
+        };
+
         const results = valid.map((d) => {
           const check = byDomain.get(d.domain);
           const available = check ? check.status === 'available' : true;
+          const px = available ? xrpPrice(d) : null;
           return {
             domain: d.domain,
             available,
-            price_xrp: available
-              ? priceXrp(d.length, d.isSubname, {
-                  basePriceXrp: deps.config.basePriceXrp,
-                  discountPercent: deps.config.discountPercent,
-                })
-              : null,
+            price_xrp: px,
+            price_rlusd: px != null && xrpUsd ? priceRlusd(px, xrpUsd) : null,
             owner: check?.owner ?? null,
             nftoken_id: check?.nftokenId ?? null,
             profile: available ? null : (profiles.get(d.domain) ?? null),

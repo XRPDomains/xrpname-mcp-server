@@ -39,6 +39,8 @@ export interface EndpointSet {
   getOrderByDomain(domain: string): string;
   /** AI name recommendations (POST). Path only — body carries query/limit/tlds. */
   aiRecommend(): string;
+  /** Canonical pricing table (per-TLD tier prices + discounts). Source of truth. */
+  pricingJson(): string;
 }
 
 const enc = encodeURIComponent;
@@ -59,6 +61,7 @@ const v1: EndpointSet = {
   getPendingDomains: (owner) => `${v1Prefix}/getPendingDomains?owner=${enc(owner)}`,
   getOrderByDomain: (domain) => `${v1Prefix}/getOrderbyDomain?domain=${enc(domain)}`,
   aiRecommend: () => `/api/domains/AIRecommend`,
+  pricingJson: () => `/v3/data/pricing.json`,
 };
 
 /**

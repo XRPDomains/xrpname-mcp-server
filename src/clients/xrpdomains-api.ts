@@ -6,6 +6,7 @@
 import { McpToolError } from '../lib/errors.js';
 import { ApiEndpoints, type EndpointSet } from '../lib/api-endpoints.js';
 import { normalizePortfolioPage, type PortfolioEntry } from '../lib/portfolio.js';
+import { parsePricing, readByPath, type PricingTable } from '../lib/pricing-source.js';
 import type { Cache } from './cache.js';
 
 const TIMEOUT_MS = 15_000;
@@ -255,6 +256,52 @@ export class XrpDomainsApi {
     };
     await this.cache.set(key, result, 10);
     return result;
+  }
+
+  /**
+   * Canonical pricing table from `/v3/data/pricing.json`. Cached 10 min.
+   * Best-effort: returns null on any failure so callers fall back to the
+   * hardcoded mirror in `src/lib/pricing.ts`.
+   */
+  async getPricing(): Promise<PricingTable | null> {
+    const key = 'mcp:pricing';
+    const cached = await this.cache.get<PricingTable>(key);
+    if (cached) return cached;
+    try {
+      const table = parsePricing(await this.fetchJson(this.endpoints.pricingJson()));
+      if (table) await this.cache.set(key, table, 600);
+      return table;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Live XRP/USD rate from the pricing table's `rate_sources` (tried in order),
+   * for RLUSD-denominated pricing. Cached per `rate_cache_ttl_sec`. Null if no
+   * source responds.
+   */
+  async getXrpUsdRate(table: PricingTable): Promise<number | null> {
+    const key = 'mcp:xrpusd';
+    const cached = await this.cache.get<number>(key);
+    if (cached) return cached;
+    for (const src of table.rateSources) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), src.timeoutMs);
+        const res = await fetch(src.endpoint, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) continue;
+        const rate = readByPath(await res.json(), src.jsonPath);
+        if (rate) {
+          await this.cache.set(key, rate, table.rateCacheTtlSec);
+          return rate;
+        }
+      } catch {
+        /* try next source */
+      }
+    }
+    return null;
   }
 }
 

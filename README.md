@@ -23,6 +23,7 @@ no transaction is ever built or held by this server.
 | `recommend_domain` | read | AI name suggestions for a keyword, with availability + price |
 | `get_domain_profile` | read | Full profile for a registered domain (owner, records, history) |
 | `get_portfolio` | read | All domains held by an XRPL address |
+| `resolve_address` | read | Reverse lookup: address → primary XRPName + all owned names |
 | `get_pending_offers` | read | Pending buy/sell offers and mints for an address |
 | `check_tx_status` | read | Status of an XRPL transaction by hash |
 | `check_order_status` | read | Status of a registration order by domain |

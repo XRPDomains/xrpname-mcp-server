@@ -83,6 +83,7 @@ const manifest = {
     { name: 'check_order_status', description: 'Backend order status for a domain you tried to register' },
     { name: 'get_pending_offers', description: 'Pending mint/incoming/outgoing operations for a wallet' },
     { name: 'get_portfolio', description: 'All XRPL domains owned by a wallet address' },
+    { name: 'resolve_address', description: 'Reverse lookup: address to primary XRPName + all owned names' },
     { name: 'register_domain', description: 'Link to register a domain on xrpdomains.xyz' },
     { name: 'set_primary_domain', description: 'Link to set a domain as the wallet primary' },
   ],

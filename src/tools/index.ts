@@ -15,6 +15,7 @@ import { registerRegisterDomain } from './register-domain.js';
 import { registerSetPrimaryDomain } from './set-primary-domain.js';
 import { registerRecommendDomain } from './recommend-domain.js';
 import { registerCheckOrderStatus } from './check-order-status.js';
+import { registerResolveAddress } from './resolve-address.js';
 
 export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckDomains(server, deps);
@@ -24,6 +25,7 @@ export function registerAllTools(server: McpServer, deps: Deps): void {
   registerCheckOrderStatus(server, deps);
   registerGetPendingOffers(server, deps);
   registerGetPortfolio(server, deps);
+  registerResolveAddress(server, deps);
   registerRegisterDomain(server, deps);
   registerSetPrimaryDomain(server, deps);
 }

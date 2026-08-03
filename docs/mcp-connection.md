@@ -41,7 +41,7 @@ Every client uses the same underlying config; only the wrapper format differs.
 claude mcp add xrpname-mcp --transport http https://xrpdomains.xyz/mcp
 ```
 
-Then `/quit` and relaunch `claude`. First tool call auto-discovers the 9 tools.
+Then `/quit` and relaunch `claude`. First tool call auto-discovers the 10 tools.
 
 ### 2.2 · Claude Desktop
 
@@ -188,7 +188,7 @@ is read-only + web-link.
 { "jsonrpc": "2.0", "method": "notifications/initialized" }
 ```
 
-### 3.4 · `tools/list` — expected 9 tools
+### 3.4 · `tools/list` — expected 10 tools
 
 ```
 Domains (5)
@@ -198,9 +198,10 @@ Domains (5)
   set_primary_domain     LINK
   get_domain_profile     READ
 
-Portfolio (2)
+Portfolio (3)
   get_portfolio          READ
   get_pending_offers     READ
+  resolve_address        READ   (reverse: address → primary + owned names)
 
 Status (2)
   check_tx_status        READ
@@ -370,7 +371,7 @@ CSS conventions (`agent-terminal`, `agent-container`, `agent-section-head`).
       <ol>
         <li><code>initialize</code> &rarr; server advertises <code>tools</code> capability</li>
         <li><code>notifications/initialized</code></li>
-        <li><code>tools/list</code> &rarr; returns 9 tools</li>
+        <li><code>tools/list</code> &rarr; returns 10 tools</li>
         <li><code>tools/call</code> &rarr; first tool invocation</li>
       </ol>
       <p class="agent-connection-verify">

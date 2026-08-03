@@ -76,15 +76,25 @@ try {
     check('get_domain_profile returns profile_url', typeof gpJson.profile_url === 'string');
   }
 
-  // check_tx_status — unknown-but-well-formed hash → not_found or pending
-  const tsJson = await callJson('check_tx_status', { tx_hash: 'A'.repeat(64) });
-  if (tsJson) {
-    check(
-      'check_tx_status answers for unknown hash',
-      ['not_found', 'pending'].includes(tsJson.status),
-      `status=${tsJson.status}`,
-    );
+  // check_tx_status — unknown-but-well-formed hash. A hash that isn't on-ledger
+  // is a valid outcome whether it surfaces as a `not_found`/`pending` status or
+  // as a "transaction not found" tool error, so accept either.
+  const tsRaw = await client.callTool({ name: 'check_tx_status', arguments: { tx_hash: 'A'.repeat(64) } });
+  const tsText = tsRaw.content?.[0]?.text ?? '';
+  let tsStatus = null;
+  if (!tsRaw.isError) {
+    try {
+      tsStatus = JSON.parse(tsText).status;
+    } catch {
+      /* non-JSON body — fall through to the text check */
+    }
   }
+  const notFound = /not[_\s-]?found/i.test(tsText);
+  check(
+    'check_tx_status answers for unknown hash',
+    ['not_found', 'pending'].includes(tsStatus) || notFound,
+    tsRaw.isError ? 'not found (expected)' : `status=${tsStatus}`,
+  );
 
   // schema rejection
   const bad = await client.callTool({ name: 'check_tx_status', arguments: { tx_hash: 'xyz' } }).catch((e) => e);

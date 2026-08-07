@@ -2,7 +2,10 @@
 
 [![npm](https://img.shields.io/npm/v/@xrpname/xrpname-mcp?logo=npm&label=npm&color=cb3837)](https://www.npmjs.com/package/@xrpname/xrpname-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-6E56CF)](https://registry.modelcontextprotocol.io/v0/servers?search=xrpname)
+[![MCP Sentinel](https://img.shields.io/badge/MCP%20Sentinel-100%2F100%20SAFE-2ea043)](https://mcpsentinel.dev/servers/xrpname)
 [![M8ven Score](https://m8ven.ai/badge/mcp/xrpdomains-xrpname-mcp-server-1wexja)](https://m8ven.ai/mcp/xrpdomains-xrpname-mcp-server-1wexja)
+[![PulseMCP](https://img.shields.io/badge/PulseMCP-Official-1f6feb)](https://www.pulsemcp.com/servers/xrpname)
+[![GitHub stars](https://img.shields.io/github/stars/XRPDomains/xrpname-mcp-server?style=social)](https://github.com/XRPDomains/xrpname-mcp-server)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 XRPL domains for AI agents. XRPName exposes the [XRPDomains](https://xrpdomains.xyz)

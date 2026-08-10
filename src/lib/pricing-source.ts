@@ -109,6 +109,32 @@ export function priceXrpFromTable(
   return round6(net);
 }
 
+/**
+ * Both the pre-discount tier price (`gross` → createOrder `price`) and the final
+ * amount to pay (`net` → createOrder `amount`). Returns nulls if unknown.
+ */
+export function priceBreakdownXrp(
+  table: PricingTable,
+  tld: string,
+  length: number,
+  isSubname: boolean,
+  now: Date = new Date(),
+): { gross: number | null; net: number | null } {
+  if (isSubname) return { gross: table.subnameXrp, net: table.subnameXrp };
+  const t = table.tlds[tld];
+  if (!t || !t.active) return { gross: null, net: null };
+  const key = tierKey(table, length);
+  if (!key) return { gross: null, net: null };
+  const gross = t.pricesXrp[key];
+  if (gross == null) return { gross: null, net: null };
+  let net = gross * (1 - (t.discountPct || 0) / 100);
+  const g = table.globalDiscount;
+  if (g && g.active && (!g.validUntil || new Date(g.validUntil) >= now)) {
+    net = net * (1 - g.pct / 100);
+  }
+  return { gross: round6(gross), net: round6(net) };
+}
+
 /** RLUSD price ≈ XRP price × XRP/USD rate (RLUSD is USD-pegged). 2 decimals. */
 export function priceRlusd(priceXrpValue: number, xrpUsdRate: number): number {
   return Math.round(priceXrpValue * xrpUsdRate * 100) / 100;

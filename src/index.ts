@@ -21,6 +21,7 @@ import { metrics } from './lib/metrics.js';
 import { checkRateLimit, resolveLimit } from './lib/rate-limit.js';
 import { Analytics } from './lib/analytics.js';
 import { STATS_HTML } from './lib/stats-page.js';
+import { registerX402Route } from './routes/x402-register.js';
 
 /** Parsed view of a JSON-RPC body used by both metrics and analytics. */
 interface ParsedReq {
@@ -206,6 +207,9 @@ async function main(): Promise<void> {
   app.get('/mcp/stats', async (_req, reply) =>
     reply.code(200).header('Content-Type', 'text/html; charset=utf-8').send(STATS_HTML),
   );
+
+  // Agentic registration via x402 (experimental, gated by config.x402.enabled).
+  registerX402Route(app, deps);
 
   const shutdown = async () => {
     logger.info('shutting down');

@@ -1,0 +1,16 @@
+{
+  "name": "xrpname-register-skill",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent skill: buy/register an XRPName root domain via x402 on XRPL",
+  "scripts": {
+    "buy": "node buy.mjs",
+    "accept": "node accept-offer.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "x402-xrpl": "^0.3.1",
+    "xrpl": "^4.1.0"
+  }
+}

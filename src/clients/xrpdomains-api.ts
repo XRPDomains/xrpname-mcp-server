@@ -7,9 +7,12 @@ import { McpToolError } from '../lib/errors.js';
 import { ApiEndpoints, type EndpointSet } from '../lib/api-endpoints.js';
 import { normalizePortfolioPage, type PortfolioEntry } from '../lib/portfolio.js';
 import { parsePricing, readByPath, type PricingTable } from '../lib/pricing-source.js';
+import { parseCreateOrderResponse, type CreateOrderResult } from '../lib/create-order.js';
 import type { Cache } from './cache.js';
 
 const TIMEOUT_MS = 15_000;
+/** createOrder mints on-chain (mint + offer + validation) — needs a longer window. */
+const CREATE_ORDER_TIMEOUT_MS = 90_000;
 const PORTFOLIO_PAGE_SIZE = 50;
 /** Safety cap on portfolio pagination (50/page × 20 = 1000 domains). */
 const MAX_PORTFOLIO_PAGES = 20;
@@ -66,9 +69,9 @@ export class XrpDomainsApi {
     }
   }
 
-  private async postJson(path: string, body: unknown): Promise<unknown> {
+  private async postJson(path: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<unknown> {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch(this.base + path, {
         method: 'POST',
@@ -302,6 +305,33 @@ export class XrpDomainsApi {
       }
     }
     return null;
+  }
+
+  /**
+   * Register a domain after an on-chain Payment (x402 flow) — same backend call
+   * the v3 web app uses. `body` is built by buildCreateOrderPayload(). Not
+   * cached (write path). Backend re-verifies the Payment on XRPL.
+   */
+  async createOrder(body: Record<string, unknown>): Promise<CreateOrderResult> {
+    // Minting on the backend (NFTokenMint + NFTokenCreateOffer + validation) can
+    // take well over the default 15s. Use a longer timeout so the offer_id +
+    // accept template make it back to the agent (else it can't sign AcceptOffer).
+    const json = await this.postJson(this.endpoints.createOrder(), body, CREATE_ORDER_TIMEOUT_MS);
+    return parseCreateOrderResponse(json);
+  }
+
+  /**
+   * Post-mint admin notification (Telegram) — same GET the v3 web fires after a
+   * mint. Fire-and-forget: never awaited on the hot path, errors swallowed.
+   * `priceLabel` is e.g. "60 $XRP".
+   */
+  notifyRegistration(domain: string, priceLabel: string, adapter = 'x402'): void {
+    const path = this.endpoints.add2Queue(domain, priceLabel, adapter);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5_000);
+    void fetch(this.base + path, { signal: ctrl.signal })
+      .catch(() => {})
+      .finally(() => clearTimeout(t));
   }
 }
 

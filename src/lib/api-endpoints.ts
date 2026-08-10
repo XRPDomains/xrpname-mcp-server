@@ -41,6 +41,10 @@ export interface EndpointSet {
   aiRecommend(): string;
   /** Canonical pricing table (per-TLD tier prices + discounts). Source of truth. */
   pricingJson(): string;
+  /** Register a domain after an on-chain Payment (x402 flow). POST — body in create-order.ts. */
+  createOrder(): string;
+  /** Post-mint admin notification (Telegram). Fire-and-forget GET. */
+  add2Queue(domain: string, priceLabel: string, adapter: string): string;
 }
 
 const enc = encodeURIComponent;
@@ -62,6 +66,9 @@ const v1: EndpointSet = {
   getOrderByDomain: (domain) => `${v1Prefix}/getOrderbyDomain?domain=${enc(domain)}`,
   aiRecommend: () => `/api/domains/AIRecommend`,
   pricingJson: () => `/v3/data/pricing.json`,
+  createOrder: () => `${v1Prefix}/createOrder`,
+  add2Queue: (domain, priceLabel, adapter) =>
+    `/api/domains/add2Queue?domain=${enc(domain)}&price=${enc(priceLabel)}&chain=XRPL&adapter=${enc(adapter)}`,
 };
 
 /**

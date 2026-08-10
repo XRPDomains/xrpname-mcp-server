@@ -18,6 +18,28 @@ export interface AnalyticsConfig {
   token: string | null;
 }
 
+export interface RegistrationConfig {
+  /** Platform contract wallet — mints from here AND is the Payment destination.
+   *  Defaults to the treasury address; override if networks-mainnet.js differs. */
+  contractAddress: string;
+  /** NFT metadata endpoint prefix used to build the NFT URI. */
+  nftBaseUri: string;
+  network: 'MAINNET' | 'TESTNET';
+}
+
+export interface X402Config {
+  /** Money path — OFF by default until a testnet dry-run validates the flow. */
+  enabled: boolean;
+  /** T54 facilitator base URL (verify + settle). */
+  facilitatorUrl: string;
+  /** SourceTag stamped on the x402 Payment (attribution). */
+  sourceTag: number;
+  /** TEST ONLY — force a fixed XRP price (e.g. 0.1) for a cheap live run.
+   *  0/unset = use real pricing. NOTE: backend re-verifies the paid amount
+   *  against pricing.json, so this only works if the backend agrees too. */
+  testPriceXrp: number;
+}
+
 export interface Config {
   apiBase: string;
   xrplWssUrl: string;
@@ -31,6 +53,8 @@ export interface Config {
   webBase: string;
   rateLimit: RateLimitConfig;
   analytics: AnalyticsConfig;
+  registration: RegistrationConfig;
+  x402: X402Config;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -44,10 +68,11 @@ function bool(value: string | undefined, fallback: boolean): boolean {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const treasury = env.XRPDOMAINS_TREASURY_ADDRESS ?? 'raAyazbgEkwzLByXipQuPLWFfnsPS1v1q9';
   return {
     apiBase: env.XRPDOMAINS_API_BASE ?? 'https://xrpdomains.xyz',
     xrplWssUrl: env.XRPL_WSS_URL ?? 'wss://xrplcluster.com',
-    treasuryAddress: env.XRPDOMAINS_TREASURY_ADDRESS ?? 'raAyazbgEkwzLByXipQuPLWFfnsPS1v1q9',
+    treasuryAddress: treasury,
     basePriceXrp: num(env.PRICING_BASE_PRICE_XRP, 10),
     discountPercent: num(env.PRICING_DISCOUNT_PERCENT, 50),
     redisUrl: env.REDIS_URL ?? null,
@@ -65,6 +90,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       enabled: bool(env.MCP_ANALYTICS_ENABLED, true),
       file: env.MCP_ANALYTICS_FILE ?? './data/analytics.json',
       token: env.MCP_STATS_TOKEN ?? null,
+    },
+    registration: {
+      contractAddress: env.XRPDOMAINS_CONTRACT_ADDRESS ?? treasury,
+      nftBaseUri:
+        env.XRPDOMAINS_NFT_BASE_URI ?? 'https://mainnet.xrpdomains.xyz/api/nftdomains/metadata/',
+      network: env.XRPDOMAINS_NETWORK === 'TESTNET' ? 'TESTNET' : 'MAINNET',
+    },
+    x402: {
+      // Deploy defaults: gateway ON with a fixed 0.1 XRP test price so the first
+      // live run is cheap. Revert to enabled=false / testPriceXrp=0 (or unset the
+      // envs) once the T54 facilitator contract is validated and real pricing is on.
+      enabled: bool(env.X402_ENABLED, true),
+      facilitatorUrl: env.X402_FACILITATOR_URL ?? 'https://xrpl-facilitator-mainnet.t54.ai',
+      sourceTag: num(env.X402_SOURCE_TAG, 804681468),
+      testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0.1),
     },
   };
 }

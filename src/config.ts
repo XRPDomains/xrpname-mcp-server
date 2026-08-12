@@ -98,13 +98,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       network: env.XRPDOMAINS_NETWORK === 'TESTNET' ? 'TESTNET' : 'MAINNET',
     },
     x402: {
-      // Deploy defaults: gateway ON with a fixed 0.1 XRP test price so the first
-      // live run is cheap. Revert to enabled=false / testPriceXrp=0 (or unset the
-      // envs) once the T54 facilitator contract is validated and real pricing is on.
+      // Gateway ON, REAL pricing (from pricing.json). testPriceXrp=0 means "use
+      // real price"; set X402_TEST_PRICE_XRP>0 only for a cheap throwaway test run.
       enabled: bool(env.X402_ENABLED, true),
       facilitatorUrl: env.X402_FACILITATOR_URL ?? 'https://xrpl-facilitator-mainnet.t54.ai',
       sourceTag: num(env.X402_SOURCE_TAG, 804681468),
-      testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0.1),
+      testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0),
     },
   };
 }

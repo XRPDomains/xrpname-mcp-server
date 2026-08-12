@@ -69,11 +69,19 @@ Payment, then signs and submits the AcceptOffer. On success it prints
 
 Endpoint: `POST https://xrpdomains.xyz/mcp/x402/register`
 
-1. **Request** — body `{ "domain": "alice.xrp" }`, no payment header yet.
+1. **Request** — body `{ "domain": "alice.xrp" }`, no payment header yet. This
+   first call **does not charge anything** — it is a free price quote. Use it to
+   show the user the price and confirm before paying.
 2. **402 Payment Required** — base64 `PAYMENT-REQUIRED` header with the challenge
    `accepts[0]`: `{ scheme:"exact", network:"xrpl:0", asset:"XRP", payTo,
    amount (drops, string), maxTimeoutSeconds, extra:{ invoiceId, sourceTag } }`.
-   Body echoes `{ domain, price_xrp }`.
+   Body echoes `{ domain, price_xrp }` (`price_xrp` is human XRP; `amount` is drops).
+   **The server sets the price** (from live pricing.json, by name length + TLD) —
+   you cannot choose it. Read `amount` / `price_xrp` from this 402 and pay exactly
+   that: the facilitator recomputes the required amount server-side and rejects
+   any Payment that doesn't match (`amount_mismatch`), so underpaying just fails.
+   Never hardcode a price. Each 402 carries a fresh `invoiceId`; don't reuse a
+   signed blob across invoices.
 3. **Pay** — sign an XRPL `Payment` of `amount` drops to `payTo`, with
    `SourceTag = extra.sourceTag`, invoice-bound (a `Memo` with
    `MemoData = HEX(UTF-8(invoiceId))`, or `InvoiceID = SHA256(invoiceId)`), and a
@@ -86,6 +94,41 @@ Endpoint: `POST https://xrpdomains.xyz/mcp/x402/register`
    `{ success, transaction, network, payer }`.
 5. **Take custody** — sign `accept_offer_template` (set `Account = payer`),
    `autofill` + `submit`. `tesSUCCESS` → the domain NFT is in the wallet.
+
+### Example 200 response
+
+```json
+{
+  "minted": true,
+  "domain": "alice.xrp",
+  "owner": "rPAYER…",
+  "nftoken_id": "00080000413DEC6E282BBCEA55B71140D0CB35F01673BBE022700A0604ACA56B",
+  "offer_id": "236D3652EAF0239A8FAC81076C0E3BE6B373DEFEC12EE5CE66DC4A7B7068F26D",
+  "mint_tx": "…",
+  "payment_tx": "C397A0B5…12C1F",
+  "accept_offer_template": {
+    "TransactionType": "NFTokenAcceptOffer",
+    "NFTokenSellOffer": "236D3652EAF0239A8FAC81076C0E3BE6B373DEFEC12EE5CE66DC4A7B7068F26D",
+    "Memos": [ { "Memo": { "MemoData": "…hex(alice.xrp)…" } } ]
+  }
+}
+```
+
+Step 5 = take `accept_offer_template`, add `Account = owner`, autofill, sign, submit.
+
+## Integration notes
+
+- **HTTP timeout ≥ 100s.** Minting on the backend can take up to ~90s; the 200
+  response (with `offer_id`) only comes back after the mint. A short client
+  timeout (e.g. 30s) will abort a successful mint — set your request timeout to
+  at least 100s.
+- **Idempotency / recovery.** If your call times out but the payment settled, the
+  domain is likely minted with a pending offer for the payer. Re-poll
+  `getPendingDomains?owner=<payer>` (see below) rather than paying again; the same
+  `domain` will now read as taken, so a fresh register returns `409 DOMAIN_TAKEN`.
+- **Two requests, one payment.** The no-signature call is a free quote; only the
+  call carrying `PAYMENT-SIGNATURE` moves funds. Confirm the quoted price with the
+  user between the two.
 
 ## Errors & recovery
 

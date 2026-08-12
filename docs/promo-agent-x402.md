@@ -75,11 +75,53 @@ node buy.mjs alice.xrp           # pay via x402 → mint → accept → owned
 
 ---
 
-## 2) X (Twitter)
+## 2) X (Twitter) — phased campaign
 
-### Launch post (single)
+Run it as an arc: **teaser → coming soon → public launch → follow-ups.** Tease
+curiosity first; save the proof + links for the launch.
 
-> Tell your agent: "buy me `xrpl-x402.xrp`" — and it's minted and in the wallet. 🤖
+**Visual assets** (in `docs/promo-assets/`):
+
+| Phase | Post | Attach |
+|-------|------|--------|
+| 1 | Teaser | `01-teaser.png` |
+| 2 | Coming soon | `02-coming-soon.png` |
+| 3 | Launch post | `03-demo.gif` (hero) + `03-launch.png` |
+| 3 | Launch thread | `05-flow.png` (on tweet 3) |
+| 4 | Follow-up | `04-prompt-showcase.png`, `05-flow.png` |
+
+All 1600×900 (X-friendly 16:9); the GIF is ~1000px, 81 KB.
+
+### Phase 1 — Teaser (curiosity, no reveal)
+
+Post one, keep it mysterious. No links, no product name.
+
+> What if your AI agent could *own* a piece of the XRP Ledger — by itself, no
+> human clicking "confirm"? 👀
+>
+> Something's coming. #XRPL #x402
+
+Alt:
+
+> An agent just did something on #XRPL mainnet that used to need a human every
+> step. No hints yet. 🤖🔜
+
+### Phase 2 — Coming soon (name the concept, invite follows)
+
+> Soon: any AI agent can **buy & register an XRPL domain on its own** — pay with
+> #x402, take custody, done. No dashboards, no seed to paste. Just: *"buy me
+> alice.xrp."*
+>
+> Dropping this week. Follow for the launch. #XRPL #AIagents
+
+*(Optional visual: the prompt line on screen, or a short blurred terminal clip —
+show the vibe, not the details yet.)*
+
+### Phase 3 — Public launch
+
+Launch post (single):
+
+> It's live. Tell your agent: "buy me `xrpl-x402.xrp`" — and it's minted and in the wallet. 🤖
 >
 > Paid via #x402, minted, and the agent signed the NFTokenAcceptOffer itself.
 > All on #XRPL mainnet, no human in the loop.
@@ -116,6 +158,17 @@ accept → livenet.xrpl.org/transactions/895F6B8A4DF813DCF11C552C15E6EE9B0DA9AF4
 7/ Built on @RippleXDev XRPL + the T54 x402 facilitator. TLDs: .xrp .xrpl .xrpfi
 .rlusd. Try it, tell us what your agent buys next. #x402 #XRPL #AIagents
 
+### Phase 4 — Follow-ups (keep momentum, 1–3 days after launch)
+
+Post one every day or two, each a different angle:
+
+- **Prompt showcase:** a chat screenshot — "buy me `defi.xrp`" → domain owned.
+- **Dev angle:** "Add domain-buying to your agent in 2 minutes" + repo link + the
+  2-signature explainer.
+- **Ecosystem:** quote/tag @RippleXDev + T54, frame as one of the first live
+  XRPL x402 mint-on-demand flows on mainnet.
+- **TLD angle:** ".xrp / .xrpl / .xrpfi / .rlusd — pick one, your agent grabs it."
+
 ### Tagging / hashtags
 
 - Tag: XRPL Devs (@RippleXDev), XRPLF, T54 (facilitator), Coinbase x402 team.
@@ -126,6 +179,9 @@ accept → livenet.xrpl.org/transactions/895F6B8A4DF813DCF11C552C15E6EE9B0DA9AF4
 A 10–15s screen recording (or GIF) of `node buy.mjs xrpl-x402.xrp` running:
 402 → payment → mint → `✅ Done — xrpl-x402.xrp is now in r3H4…`. The terminal
 output is the whole story; end on the explorer page for the AcceptOffer tx.
+
+Per phase: Phase 1–2 use only a **blurred/short** clip or the prompt line (tease,
+don't reveal); Phase 3 shows the **full** run + explorer proof.
 
 ---
 

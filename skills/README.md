@@ -1,7 +1,7 @@
 # XRPName Agent Skills
 
-Skills that let AI agents interact with [XRPName](https://xrpdomains.xyz) domains
-on the XRP Ledger.
+Skills that let AI agents interact with [XRPName](https://xrpdomains.xyz/agent)
+domains on the XRP Ledger.
 
 ## `xrpname-register` — buy a domain from an agent, via x402
 

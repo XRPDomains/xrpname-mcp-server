@@ -1,0 +1,16 @@
+{
+  "name": "x402-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "x402 Gateway for XRPL — pay projects over x402 (Phase 1: pay)",
+  "scripts": {
+    "pay": "node pay.mjs",
+    "buy-nft": "node buy-nft.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "x402-xrpl": "^0.3.1",
+    "xrpl": "^4.1.0"
+  }
+}

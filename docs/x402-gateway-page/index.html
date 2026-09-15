@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>x402 Gateway for XRPL — accept &amp; make x402 payments</title>
+<style>
+  :root{
+    --bg0:#0A0E1A; --bg1:#0D1526; --card:#0B1220; --line:#1E2A44;
+    --tx:#E6EAF2; --mu:#8A93A6; --cy:#22D3EE; --bl:#3B82F6; --gr:#34D399; --vi:#8B5CF6;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--sans);color:var(--tx);
+    background:radial-gradient(1200px 600px at 50% -5%,rgba(59,130,246,.18),transparent 60%),linear-gradient(160deg,var(--bg0),var(--bg1));min-height:100vh}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
+  .brand{font-weight:800;letter-spacing:.5px}
+  .brand span{background:linear-gradient(90deg,var(--cy),var(--vi));-webkit-background-clip:text;background-clip:text;color:transparent}
+  nav a{color:var(--mu);text-decoration:none;margin-left:20px;font-size:14px}
+  .hero{text-align:center;padding:56px 0 40px}
+  .pill{display:inline-block;border:1px solid var(--line);color:var(--cy);border-radius:999px;
+    padding:7px 16px;font-family:var(--mono);font-size:13px;margin-bottom:22px}
+  h1{font-size:50px;line-height:1.08;margin:0 0 16px}
+  h1 .g{background:linear-gradient(90deg,var(--cy),var(--vi));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--mu);font-size:19px;max-width:700px;margin:0 auto 28px}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{padding:13px 22px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px}
+  .btn.primary{background:linear-gradient(90deg,var(--cy),var(--bl));color:#04121e}
+  .btn.ghost{border:1px solid var(--line);color:var(--tx)}
+  section{padding:46px 0}
+  h2{font-size:30px;text-align:center;margin:0 0 8px}
+  .lead{color:var(--mu);text-align:center;margin:0 auto 34px;max-width:660px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px}
+  .card h3{margin:0 0 6px;font-size:22px}
+  .tag{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:8px;padding:3px 9px;display:inline-block;margin-bottom:12px}
+  .tag.live{color:var(--gr);border-color:rgba(52,211,153,.4)}
+  .tag.soon{color:var(--vi);border-color:rgba(139,92,246,.4)}
+  .card p{color:var(--mu);margin:0 0 12px;font-size:15px}
+  .card ul{margin:0;padding-left:18px;color:var(--mu);font-size:14px}
+  .flow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .node{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;min-width:210px;text-align:center}
+  .node b{display:block;font-size:18px;margin-bottom:4px}
+  .node small{color:var(--mu);font-family:var(--mono);font-size:12px}
+  .node.a{border-color:var(--bl)} .node.b{border-color:var(--vi)} .node.c{border-color:var(--gr)}
+  .arw{color:var(--cy);font-size:26px}
+  pre{background:#070c17;border:1px solid var(--line);border-radius:14px;padding:20px;overflow:auto;
+    font-family:var(--mono);font-size:14px;color:#cdd6e6;line-height:1.6}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:8px 15px;font-family:var(--mono);font-size:13px;color:var(--cy)}
+  .proof{text-align:center;color:var(--mu);font-size:14px}
+  .proof a{color:var(--cy)}
+  footer{border-top:1px solid var(--line);margin-top:40px;padding:26px 0;color:var(--mu);font-size:13px;text-align:center}
+  @media(max-width:760px){h1{font-size:34px}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">x402 <span>Gateway</span></div>
+    <nav>
+      <a href="#who">Who it's for</a><a href="#how">How it works</a>
+      <a href="#start">Quickstart</a><a href="#">Docs</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div class="pill">x402 · XRP Ledger · non-custodial</div>
+    <h1>Accept &amp; make payments <span class="g">over HTTP, on XRPL.</span></h1>
+    <p class="sub">The x402 Gateway for XRPL lets any project take x402 payments with
+      <b>no server to deploy</b> — register a project, set where funds go and how much,
+      share your endpoint. Agents and apps pay it directly. Funds settle
+      <b>payer → your wallet</b>; the gateway never holds funds or keys.</p>
+    <div class="cta">
+      <a class="btn primary" href="#start">Get started</a>
+      <a class="btn ghost" href="https://github.com/XRPDomains/xrpname-mcp-server/tree/main/skills/x402-gateway">View the skill</a>
+    </div>
+  </div>
+
+  <section id="who">
+    <h2>What you can do</h2>
+    <p class="lead">Phase 1 is live for payments. Pay-to-NFT is on the roadmap.</p>
+    <div class="grid2">
+      <div class="card">
+        <span class="tag live">Live · Phase 1</span>
+        <h3>Pay</h3>
+        <p>Accept an XRP payment over HTTP 402 — one signature.</p>
+        <ul>
+          <li>Tips &amp; donations (payer picks amount in a range)</li>
+          <li>Pay-per-request APIs</li>
+          <li>Paywalls / unlock content</li>
+          <li>Buy a service</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag soon">Roadmap · Phase 2</span>
+        <h3>Pay-to-NFT</h3>
+        <p>Pay and receive an NFT — mint-on-demand or buy an existing offer.</p>
+        <ul>
+          <li>Buy / mint an NFT, memberships, tickets</li>
+          <li>Keyless to the gateway (mint webhook or authorized minter)</li>
+          <li>Buyer signs one NFTokenAcceptOffer</li>
+          <li>XRPName domains = the first project</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="lead">Payer signs; the T54 facilitator verifies + settles to your wallet; nobody holds a key.</p>
+    <div class="flow">
+      <div class="node a"><b>Agent / App</b><small>signs the Payment</small></div>
+      <div class="arw">→</div>
+      <div class="node b"><b>x402 Gateway</b><small>402 · your payTo + price</small></div>
+      <div class="arw">→</div>
+      <div class="node c"><b>T54 → XRPL</b><small>settles ~4s · payer → you</small></div>
+    </div>
+    <div class="chips">
+      <div class="chip">no code to deploy</div><div class="chip">non-custodial</div>
+      <div class="chip">no accounts / API keys</div><div class="chip">underpay = rejected</div>
+    </div>
+  </section>
+
+  <section id="start">
+    <h2>Quickstart</h2>
+    <p class="lead">Projects register a projectId + payTo + price. Payers just hit the endpoint.</p>
+    <pre># Project config (registry) — where funds go &amp; how much
+{ "projectId": "demo-tips", "payTo": "r…",
+  "asset": { "code": "XRP" }, "price": { "mode": "range", "min": 0.1, "max": 100 } }
+
+# Payer — pay the project's endpoint
+node pay.mjs https://xrpdomains.xyz/x402/demo-tips/pay</pre>
+    <p class="proof">Same rails already proven live on XRPL mainnet — an AI agent
+      registered <code>xrpl-x402.xrp</code> autonomously:
+      <a href="https://livenet.xrpl.org/transactions/895F6B8A4DF813DCF11C552C15E6EE9B0DA9AF45C629B13168C5C7ABB59458EA">receipt</a>.
+    </p>
+  </section>
+
+  <footer>
+    x402 Gateway by <a href="https://xrpdomains.xyz/agent" style="color:var(--cy)">XRPName</a> ·
+    powered by the <a href="https://xrpl-x402.t54.ai" style="color:var(--cy)">T54 x402 facilitator</a> ·
+    #XRPL #x402
+  </footer>
+</div>
+</body>
+</html>

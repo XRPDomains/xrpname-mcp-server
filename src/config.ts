@@ -40,6 +40,13 @@ export interface X402Config {
   testPriceXrp: number;
 }
 
+export interface GatewayConfig {
+  /** x402 Gateway (Phase 1, pay-only, multi-tenant). */
+  enabled: boolean;
+  /** JSON file of project configs (payTo + price). A dashboard writes it later. */
+  projectsFile: string;
+}
+
 export interface Config {
   apiBase: string;
   xrplWssUrl: string;
@@ -55,6 +62,7 @@ export interface Config {
   analytics: AnalyticsConfig;
   registration: RegistrationConfig;
   x402: X402Config;
+  gateway: GatewayConfig;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -104,6 +112,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       facilitatorUrl: env.X402_FACILITATOR_URL ?? 'https://xrpl-facilitator-mainnet.t54.ai',
       sourceTag: num(env.X402_SOURCE_TAG, 804681468),
       testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0),
+    },
+    gateway: {
+      enabled: bool(env.GATEWAY_ENABLED, true),
+      projectsFile: env.GATEWAY_PROJECTS_FILE ?? './data/gateway-projects.json',
     },
   };
 }

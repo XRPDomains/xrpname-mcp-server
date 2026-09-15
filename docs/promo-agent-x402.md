@@ -213,3 +213,129 @@ two-signature flow → reports the tx hashes.
 
 **One-liner for the announcement:** *"Your agent, one sentence — 'buy me
 alice.xrp' — and it's minted and in the wallet."*
+
+---
+
+## 4) Extra X posts — MCP × x402 (community hooks)
+
+Standalone posts to sprinkle in — punchier, more "call to the community." Mix
+big-picture, dev-CTA, and provocation. Each fits in one tweet.
+
+### Big picture
+
+> AI agents can already read the web. Now they can **pay** for it — and own what
+> they buy.
+>
+> XRPName = MCP server + x402 on #XRPL. Your agent buys a domain, signs, owns it.
+> Mainnet. Live. 👉 github.com/XRPDomains/xrpname-mcp-server
+
+> MCP gives agents tools. #x402 gives them a wallet. #XRPL settles it in ~4s.
+> Put all three together and you get agents that **buy, own, and trade** onchain
+> assets. We shipped the first one. 🧵 [repo]
+
+> The agent economy isn't agents *talking*. It's agents *transacting*.
+> Proof on #XRPL mainnet: an AI agent bought a domain end-to-end — x402 pay +
+> NFTokenAcceptOffer, zero humans. 🤖 [repo]
+
+### Dev call-to-action
+
+> Builders 👀 we open-sourced an AI agent that buys #XRPL domains via #x402.
+> The mint-gateway is **issuer-agnostic** — point it at YOUR NFTs and agents buy
+> them autonomously. Domains were just adapter #1. 🧩 [repo]
+
+> Your MCP agent already has tools. Give it a wallet.
+> `npm i`, one prompt — "buy me alice.xrp" → pay (x402) → mint → owned. #XRPL
+> mainnet. Drop-in skill 👇 [repo]
+
+> Add agent-native commerce to your app in an afternoon:
+> MCP server + a 2-signature x402 flow, fully documented. #XRPL #x402
+> → [repo]/tree/main/skills/xrpname-register
+
+### Provocation / credibility
+
+> Not a testnet demo. Not a mockup.
+> An AI agent paid, minted, and signed the transfer **itself** — all on #XRPL
+> mainnet. receipts 👇
+> livenet.xrpl.org/transactions/895F6B8A4DF813DCF11C552C15E6EE9B0DA9AF45C629B13168C5C7ABB59458EA
+
+> Everyone's talking about the "agent economy."
+> We shipped a piece of it: an agent that buys its own name on #XRPL, via #x402,
+> on mainnet, today. Go make your agent do it 👉 [repo]
+
+### Community challenge (drives replies)
+
+> Challenge: point your agent at our #x402 endpoint and let it register its own
+> name on #XRPL. The first request is a **free quote** — no charge.
+> What handle will your agent pick? 👀 [repo] #AIagents
+
+> Reply with what your AI agent would buy first if it had an #XRPL wallet.
+> (It can — here's how 👇) [repo]
+
+### Reusable tags
+
+@RippleXDev · XRPLF · T54 (facilitator) · #XRPL #x402 #MCP #AIagents #XRP.
+Pair any of these with an asset from `docs/promo-assets/` (05-flow.png reads well
+on the MCP × x402 "big picture" posts).
+
+---
+
+## 5) X posts — the T54 facilitator integration
+
+Posts that spotlight **why XRPName settles through the T54 x402 facilitator**
+(`xrpl-x402.t54.ai`) and its advantages. All points below are from T54's own
+docs, so they're safe to claim.
+
+### No-custody / trust
+
+> We didn't roll our own payment rail. XRPName settles agent domain purchases
+> through the **T54 x402 facilitator** on #XRPL.
+> No-custody: the agent signs, the facilitator only **verifies + settles** —
+> nobody holds your key. 🔐
+> xrpl-x402.t54.ai
+
+> How does an agent pay with no middleman holding funds?
+> Presigned XRPL Payment → T54 facilitator checks amount, destination & invoice
+> binding → settles. Underpay = rejected. That's the rail under XRPName.
+> xrpl-x402.t54.ai
+
+### Zero friction / agent-native
+
+> x402 on #XRPL via T54 = **no accounts, no API keys, no sessions.**
+> Your agent hits the endpoint, pays per request, gets the domain. That's the
+> whole flow.
+> xrpl-x402.t54.ai · [repo]
+
+> The T54 facilitator is agent-native: agents **discover and pay automatically**
+> over plain HTTP 402. We wired XRPName domain registration straight into it.
+> One endpoint, two signatures, done. 🤖
+> xrpl-x402.t54.ai
+
+### Speed / micropayments
+
+> XRP settles in ~4s and fees are tiny — so **pay-per-action, agent-scale**
+> commerce actually works.
+> XRPName registers domains on mainnet over the T54 x402 facilitator. ⚡
+> xrpl-x402.t54.ai
+
+### XRP + RLUSD
+
+> The T54 x402 facilitator settles **XRP *and* issued assets like RLUSD.**
+> XRPName starts with XRP; RLUSD-priced domain buys are next — same rails, same
+> agent flow. 💵
+> xrpl-x402.t54.ai · [repo]
+
+### Builder CTA
+
+> Building agent commerce on #XRPL? The **T54 x402 facilitator** does the heavy
+> lifting — verify + settle presigned payments, XRP or RLUSD, no custody.
+> We plugged XRPName into it in days. You can too. 👉 xrpl-x402.t54.ai
+
+> Bonus: T54's stack also has **Verifiable Intent** — a risk/trust layer for
+> higher-value agent payments. Room to grow as agent commerce scales. 🧩
+> xrpl-x402.t54.ai
+
+*(Confirm T54's official @handle before tagging; the docs URL `xrpl-x402.t54.ai`
+is the safe canonical link.)*
+
+**Visual:** attach `docs/promo-assets/06-t54.png` — the Agent → T54 → XRPL flow
+with the "no accounts / no API keys / XRP + RLUSD / agent-native" benefit chips.

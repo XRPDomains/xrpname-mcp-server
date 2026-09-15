@@ -25,6 +25,7 @@ const AGENT_TTL_MS = 6 * 60 * 60 * 1000; // link a tools/call to an initialize f
 const MAX_IP_MAP = 20_000; // bound the in-memory ip→agent map
 const RECENT_MAX = 50; // ring buffer size for the recent-calls log
 const ARGS_MAX_CHARS = 300; // truncate stored tool arguments
+const X402_RECENT_MAX = 25; // ring buffer size for the x402 activity log
 
 // Directory crawlers / health probes that only `initialize` + `tools/list` to
 // index or monitor the server — NOT real end-user clients. Kept out of the
@@ -85,6 +86,26 @@ interface Store {
   // ring buffer of the most recent tool calls (newest last). Includes the
   // arguments sent in, so it's only exposed in the token-gated detail view.
   recent: RecentCall[];
+  // x402 on-chain activity (settled payments). Public-safe: tx hashes are
+  // on-ledger, payer is shortened. Optional for back-compat with older files.
+  x402?: X402Stats;
+}
+
+interface X402Stats {
+  payments: number; // settled x402 payments (register mints + gateway pays)
+  xrpDrops: number; // cumulative XRP volume in drops (integer, no float drift)
+  minted: number; // successful domain mints via x402
+  recent: X402Event[];
+}
+
+export interface X402Event {
+  ts: number;
+  kind: 'register' | 'pay';
+  item: string; // domain (register) or projectId (pay)
+  amountXrp: number;
+  payer: string; // shortened rXXXX…XXXX
+  tx: string; // settled payment tx hash (public on-ledger)
+  mintTx: string | null;
 }
 
 export interface RecentCall {
@@ -162,6 +183,7 @@ export class Analytics {
           }
           parsed.links = parsed.links ?? {}; // back-compat with pre-links files
           parsed.recent = parsed.recent ?? [];
+          parsed.x402 = parsed.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] };
           return parsed;
         }
       } catch {
@@ -180,6 +202,7 @@ export class Analytics {
       days: {},
       links: {},
       recent: [],
+      x402: { payments: 0, xrpDrops: 0, minted: 0, recent: [] },
     };
   }
 
@@ -276,6 +299,36 @@ export class Analytics {
     }
 
     this.prune();
+    this.scheduleSave();
+  }
+
+  /**
+   * Record a settled x402 payment (a domain-registration mint, or a gateway
+   * pay). Public-safe: tx hashes are on-ledger and the payer is shortened.
+   */
+  recordX402(evt: {
+    kind: 'register' | 'pay';
+    item: string;
+    amountXrp: number;
+    payer: string;
+    tx: string;
+    mintTx?: string | null;
+  }): void {
+    if (!this.enabled) return;
+    const x = (this.store.x402 = this.store.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] });
+    x.payments += 1;
+    x.xrpDrops += Math.max(0, Math.round((evt.amountXrp || 0) * 1_000_000));
+    if (evt.kind === 'register' && evt.mintTx) x.minted += 1;
+    x.recent.push({
+      ts: Date.now(),
+      kind: evt.kind,
+      item: clean(evt.item || ''),
+      amountXrp: evt.amountXrp || 0,
+      payer: shortenAddresses(evt.payer || ''),
+      tx: evt.tx || '',
+      mintTx: evt.mintTx ?? null,
+    });
+    if (x.recent.length > X402_RECENT_MAX) x.recent.splice(0, x.recent.length - X402_RECENT_MAX);
     this.scheduleSave();
   }
 
@@ -384,6 +437,16 @@ export class Analytics {
       series, // daily; dashboard rolls up to weekly/monthly
       recent: s.recent.slice(-25).reverse(), // newest first
     };
+
+    // x402 on-chain activity — public-safe (tx hashes on-ledger, payer shortened).
+    const x = s.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] };
+    out.x402 = {
+      payments: x.payments,
+      xrpVolume: x.xrpDrops / 1_000_000,
+      minted: x.minted,
+      recent: x.recent.slice(-15).reverse(),
+    };
+
     if (detail) {
       out.methods = s.methods;
       out.agentVersions = s.agentVersions;

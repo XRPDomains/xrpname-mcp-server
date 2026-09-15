@@ -15,8 +15,13 @@ export const STATS_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="robots" content="noindex" />
-<title>XRPName MCP · Usage</title>
+<meta name="robots" content="index, follow" />
+<title>XRPName MCP · Usage &amp; x402 activity</title>
+<meta name="description" content="Live usage and x402 on-chain activity for the XRPName MCP server on the XRP Ledger — installs, tool calls, and domains minted via x402." />
+<meta property="og:title" content="XRPName MCP · Usage &amp; x402 activity" />
+<meta property="og:description" content="Live MCP usage and x402 payments settled on XRPL mainnet — installs, tool calls, domains minted." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
@@ -68,6 +73,10 @@ export const STATS_HTML = `<!doctype html>
   a{color:var(--accent);text-decoration:none}
   .empty{color:var(--muted);text-align:center;padding:40px 0}
   canvas{max-height:280px}
+  .trust{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 20px}
+  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap}
+  .badge:hover{border-color:var(--accent);color:var(--txt)}
 </style>
 </head>
 <body>
@@ -86,7 +95,22 @@ export const STATS_HTML = `<!doctype html>
     <button class="ghost" id="refresh">Refresh</button>
   </header>
 
+  <div class="trust" id="trust">
+    <a class="badge" href="https://www.npmjs.com/package/@xrpname/xrpname-mcp" target="_blank" rel="noopener">npm · @xrpname/xrpname-mcp</a>
+    <a class="badge" href="https://github.com/XRPDomains/xrpname-mcp-server" target="_blank" rel="noopener">GitHub</a>
+    <a class="badge" href="https://www.pulsemcp.com/servers/xrpname" target="_blank" rel="noopener">PulseMCP</a>
+    <a class="badge" href="https://mcpsentinel.dev/servers/xrpname" target="_blank" rel="noopener">MCP Sentinel</a>
+    <a class="badge" href="https://policylayer.com/token-cost/io-github-xrpdomains-xrpname-mcp-server" target="_blank" rel="noopener">PolicyLayer · 1,908 tok</a>
+    <a class="badge" href="https://xrpdomains.xyz/agent" target="_blank" rel="noopener">xrpdomains.xyz/agent</a>
+  </div>
+
   <div class="cards" id="cards"></div>
+
+  <div class="panel" id="x402panel" style="display:none">
+    <h3>x402 on-chain activity <span class="pill">XRPL mainnet</span></h3>
+    <div class="cards" id="x402cards" style="margin-bottom:14px"></div>
+    <div id="x402recent" class="scrolly"></div>
+  </div>
 
   <div class="panel">
     <h3>Connections &amp; tool calls over time</h3>
@@ -111,6 +135,11 @@ export const STATS_HTML = `<!doctype html>
     </div>
   </div>
 
+  <div class="panel" id="ctx">
+    <h3>Context efficiency</h3>
+    <div style="color:var(--muted);font-size:13px">These 10 tool definitions cost ~<strong style="color:var(--txt)">1,908 tokens</strong> — about 1% of a 200k context window, around the median MCP server. Independently measured by <a href="https://policylayer.com/token-cost/io-github-xrpdomains-xrpname-mcp-server" target="_blank" rel="noopener">PolicyLayer</a>.</div>
+  </div>
+
   <div class="foot" id="foot"></div>
 </div>
 
@@ -124,6 +153,7 @@ export const STATS_HTML = `<!doctype html>
   var lineChart = null, toolChart = null;
 
   function n(x){ return (x||0).toLocaleString(); }
+  function fx(x){ return (Math.round((x||0)*1e6)/1e6).toLocaleString(); }
   function el(id){ return document.getElementById(id); }
 
   // ---- roll daily series up to week / month ----
@@ -245,11 +275,35 @@ export const STATS_HTML = `<!doctype html>
     }).join('');
     el('recent').innerHTML='<table><thead><tr><th>When</th><th>Tool</th><th>Client</th><th>Arguments</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
+  function renderX402(){
+    var x = data.x402;
+    if(!x || !x.payments){ el('x402panel').style.display='none'; return; }
+    el('x402panel').style.display='block';
+    var cards = [
+      {k:'x402 payments', v:n(x.payments), d:'settled on XRPL'},
+      {k:'XRP settled', v:fx(x.xrpVolume)+' XRP', d:'via x402'},
+      {k:'Domains minted', v:n(x.minted), d:'agentic registration'}
+    ];
+    el('x402cards').innerHTML = cards.map(function(c){
+      return '<div class="card"><div class="k">'+c.k+'</div><div class="v">'+c.v+'</div><div class="d">'+c.d+'</div></div>';
+    }).join('');
+    var rows = (x.recent||[]).map(function(e){
+      var tx = e.tx ? '<a href="https://livenet.xrpl.org/transactions/'+esc(e.tx)+'" target="_blank" rel="noopener">'+esc(String(e.tx).slice(0,10))+'…</a>' : '—';
+      return '<tr><td style="white-space:nowrap;color:var(--muted)">'+ago(e.ts)+'</td>'+
+        '<td><span class="pill">'+esc(e.kind)+'</span> <strong>'+esc(e.item)+'</strong></td>'+
+        '<td class="num">'+fx(e.amountXrp)+' XRP</td>'+
+        '<td style="color:var(--muted)">'+esc(e.payer)+'</td>'+
+        '<td>'+tx+'</td></tr>';
+    }).join('');
+    el('x402recent').innerHTML = rows
+      ? '<table><thead><tr><th>When</th><th>Item</th><th class="num">Amount</th><th>Payer</th><th>Tx</th></tr></thead><tbody>'+rows+'</tbody></table>'
+      : '<div class="empty">No x402 payments yet.</div>';
+  }
   function renderAll(){
-    renderCards(); renderLine(); renderTools(); renderAgents(); renderRecent();
+    renderCards(); renderX402(); renderLine(); renderTools(); renderAgents(); renderRecent();
     var when = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : '';
     el('sub').textContent = 'since ' + (data.since||'—') + (token ? ' · detailed view' : '');
-    el('foot').innerHTML = 'Updated ' + when + ' · endpoint <a href="https://xrpdomains.xyz/agent">xrpdomains.xyz/agent</a> · read-only, no PII stored.';
+    el('foot').innerHTML = 'Updated ' + when + ' · <a href="https://xrpdomains.xyz/agent">xrpdomains.xyz/agent</a> · public JSON: <a href="' + base + '.json">' + base + '.json</a> · read-only, no PII stored.';
   }
 
   function load(){

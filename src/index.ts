@@ -22,6 +22,7 @@ import { checkRateLimit, resolveLimit } from './lib/rate-limit.js';
 import { Analytics } from './lib/analytics.js';
 import { STATS_HTML } from './lib/stats-page.js';
 import { registerX402Route } from './routes/x402-register.js';
+import { registerGatewayRoutes } from './routes/x402-gateway.js';
 
 /** Parsed view of a JSON-RPC body used by both metrics and analytics. */
 interface ParsedReq {
@@ -209,7 +210,10 @@ async function main(): Promise<void> {
   );
 
   // Agentic registration via x402 (experimental, gated by config.x402.enabled).
-  registerX402Route(app, deps);
+  registerX402Route(app, deps, analytics);
+
+  // x402 Gateway for XRPL — Phase 1 pay-only, multi-tenant (gated by config.gateway.enabled).
+  registerGatewayRoutes(app, deps, analytics);
 
   const shutdown = async () => {
     logger.info('shutting down');

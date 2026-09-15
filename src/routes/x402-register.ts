@@ -30,8 +30,9 @@ import {
   type PaymentSignature,
 } from '../lib/x402.js';
 import type { Deps } from '../types/deps.js';
+import type { Analytics } from '../lib/analytics.js';
 
-export function registerX402Route(app: FastifyInstance, deps: Deps): void {
+export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: Analytics): void {
   const { x402, registration } = deps.config;
 
   // First (and currently only) adapter. To support another issuer later, select
@@ -129,6 +130,9 @@ export function registerX402Route(app: FastifyInstance, deps: Deps): void {
 
     // Post-mint admin notification (Telegram), fire-and-forget.
     adapter.onMinted?.({ item, payer, priceXrp: net, mintTx: mint.mintTx });
+
+    // Record x402 on-chain activity for the public dashboard.
+    analytics?.recordX402({ kind: 'register', item, amountXrp: net, payer, tx: paymentTx, mintTx: mint.mintTx });
 
     reply.header(
       'PAYMENT-RESPONSE',

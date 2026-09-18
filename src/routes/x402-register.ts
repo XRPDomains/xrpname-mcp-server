@@ -33,7 +33,8 @@ import type { Deps } from '../types/deps.js';
 import type { Analytics } from '../lib/analytics.js';
 
 export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: Analytics): void {
-  const { x402, registration } = deps.config;
+  const { x402, registration, webBase } = deps.config;
+  const resourceUrl = webBase + '/mcp/x402/register';
 
   // First (and currently only) adapter. To support another issuer later, select
   // an adapter here (e.g. by a `kind` field on the request) — the rest is generic.
@@ -75,11 +76,13 @@ export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: 
         amountDrops,
         invoiceId,
         sourceTag: x402.sourceTag,
-        resource: `${adapter.id}:${item}`,
+        resourceUrl,
         description: `${adapter.label} ${item} (${net} XRP)`,
       });
       reply.header('PAYMENT-REQUIRED', encodeHeader(challenge));
-      return reply.code(402).send({ x402Version: challenge.x402Version, accepts: challenge.accepts, domain: item, price_xrp: net });
+      // Body mirrors the PAYMENT-REQUIRED header (full x402 v2 PaymentRequired,
+      // incl. the `resource` object) plus convenience fields.
+      return reply.code(402).send({ ...challenge, domain: item, price_xrp: net });
     }
 
     // Step 2 — settle via facilitator
@@ -100,6 +103,7 @@ export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: 
 
     const settle = await settleWithFacilitator(x402.facilitatorUrl, sig, requirement);
     if (!settle.success || !settle.transaction || !settle.payer) {
+      analytics?.recordX402Refusal({ kind: 'register', item, reason: settle.error || 'PAYMENT_FAILED', amountXrp: net });
       return reply.code(402).send({ error: 'PAYMENT_FAILED', detail: settle.error });
     }
     const payer = settle.payer;
@@ -108,6 +112,7 @@ export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: 
     // Race re-check: taken after payment → surface for refund
     const q2 = await adapter.quote(item);
     if (!q2.available) {
+      analytics?.recordX402Refusal({ kind: 'register', item, reason: 'DOMAIN_TAKEN_AFTER_PAYMENT', payer, amountXrp: net });
       return reply.code(409).send({ error: 'DOMAIN_TAKEN_AFTER_PAYMENT', domain: item, payment_tx: paymentTx });
     }
 
@@ -125,14 +130,15 @@ export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: 
       if (recovered?.ok && recovered.offerId) mint = recovered;
     }
     if (!mint.ok || !mint.offerId) {
-      return reply.code(502).send({ error: 'MINT_FAILED', domain: item, payment_tx: paymentTx, raw: mint.raw });
+      analytics?.recordX402Refusal({ kind: 'register', item, reason: 'MINT_FAILED', payer, amountXrp: net });
+      return reply.code(502).send({ error: 'MINT_FAILED', domain: item, payment_tx: paymentTx });
     }
 
     // Post-mint admin notification (Telegram), fire-and-forget.
     adapter.onMinted?.({ item, payer, priceXrp: net, mintTx: mint.mintTx });
 
     // Record x402 on-chain activity for the public dashboard.
-    analytics?.recordX402({ kind: 'register', item, amountXrp: net, payer, tx: paymentTx, mintTx: mint.mintTx });
+    analytics?.recordX402({ kind: 'register', item, amountXrp: net, payer, tx: paymentTx, mintTx: mint.mintTx, payTo: registration.contractAddress });
 
     reply.header(
       'PAYMENT-RESPONSE',

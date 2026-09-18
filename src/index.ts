@@ -208,6 +208,34 @@ async function main(): Promise<void> {
   app.get('/mcp/stats', async (_req, reply) =>
     reply.code(200).header('Content-Type', 'text/html; charset=utf-8').send(STATS_HTML),
   );
+  // Embeddable live x402 badge (SVG). Others can <img> it anywhere.
+  app.get('/mcp/badge.svg', async (_req, reply) => {
+    const snap = analytics.snapshot(false) as { x402?: { payments?: number; xrpVolume?: number } };
+    const x = snap.x402 ?? {};
+    const label = 'x402 on XRPL';
+    const value = (x.payments ?? 0) + ' pays · ' + Math.round((x.xrpVolume ?? 0) * 100) / 100 + ' XRP';
+    const lw = 96;
+    const vw = Math.max(120, 12 + value.length * 7);
+    const w = lw + vw;
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="28" role="img" aria-label="' + label + ': ' + value + '">' +
+      '<rect width="' + w + '" height="28" rx="6" fill="#0b0f19"/>' +
+      '<rect x="' + lw + '" width="' + vw + '" height="28" fill="#0d1526"/>' +
+      '<rect width="' + w + '" height="28" rx="6" fill="none" stroke="#233047"/>' +
+      '<text x="10" y="18" fill="#8b98b0" font-family="Segoe UI,Arial,sans-serif" font-size="12">' + label + '</text>' +
+      '<text x="' + (lw + 10) + '" y="18" fill="#33bbff" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="bold">' + value + '</text>' +
+      '</svg>';
+    return reply.code(200).header('Content-Type', 'image/svg+xml; charset=utf-8').header('Cache-Control', 'max-age=300').send(svg);
+  });
+  // Health summary for the dashboard chip (reachable via the /mcp proxy rule).
+  app.get('/mcp/health', async (_req, reply) => {
+    const xrplOk = await deps.xrpl.isReachable();
+    return reply
+      .code(200)
+      .header('Cache-Control', 'no-store')
+      .header('Access-Control-Allow-Origin', '*')
+      .send({ version: SERVER_VERSION, uptime_s: Math.round(process.uptime()), xrpl: xrplOk ? 'ok' : 'unreachable' });
+  });
 
   // Agentic registration via x402 (experimental, gated by config.x402.enabled).
   registerX402Route(app, deps, analytics);

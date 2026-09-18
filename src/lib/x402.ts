@@ -30,12 +30,18 @@ export interface PaymentRequirement {
   extra: { invoiceId: string; sourceTag: number; issuer?: string };
 }
 
+/** x402 v2 resource descriptor. MUST be an object (not a string) so SDK clients
+ *  (x402-xrpl) parse the 402 body correctly. */
+export interface ResourceInfo {
+  url: string;
+  description?: string;
+  mimeType?: string;
+}
+
 export interface Challenge {
   x402Version: number;
+  resource?: ResourceInfo;
   accepts: PaymentRequirement[];
-  /** Human-readable resource id / description (optional, informational). */
-  resource?: string;
-  description?: string;
 }
 
 /** Invoice id bound to a specific domain + unique nonce (replay protection). */
@@ -64,8 +70,10 @@ export interface BuildChallengeInput {
   amountDrops: string; // XRP drops as string
   invoiceId: string;
   sourceTag?: number;
-  resource?: string;
+  /** Absolute URL of the paid resource — becomes resource.url (x402 v2). */
+  resourceUrl?: string;
   description?: string;
+  mimeType?: string;
   maxTimeoutSeconds?: number;
 }
 
@@ -73,8 +81,9 @@ export interface BuildChallengeInput {
 export function buildChallenge(input: BuildChallengeInput): Challenge {
   return {
     x402Version: X402_VERSION,
-    resource: input.resource,
-    description: input.description,
+    resource: input.resourceUrl
+      ? { url: input.resourceUrl, description: input.description, mimeType: input.mimeType ?? 'application/json' }
+      : undefined,
     accepts: [
       {
         scheme: 'exact',

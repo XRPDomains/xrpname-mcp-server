@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>XRPName · MCP usage &amp; x402 activity</title>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin/>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --bg:#050608; --bg2:#0a0d13;
+    --surface:rgba(255,255,255,.025); --surface2:rgba(255,255,255,.04);
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --ink:#ffffff; --sub:#aab3c5; --muted:#6f7a90;
+    --accent:#33bbff; --accent2:#22d3ee;
+    --ok:#3ad29f; --warn:#f5b544; --bad:#ff6470;
+    --r:16px;
+    --sans:"Satoshi",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:
+      radial-gradient(900px 480px at 82% -8%,rgba(51,187,255,.10),transparent 60%),
+      radial-gradient(700px 420px at 0% 0%,rgba(34,211,238,.06),transparent 55%),
+      var(--bg);
+    color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;
+    -webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+  .wrap{max-width:1160px;margin:0 auto;padding:22px 20px 72px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{color:#7fd4ff}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* top bar */
+  .top{display:flex;align-items:center;gap:14px;padding:8px 0 20px;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:11px}
+  .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(150deg,rgba(51,187,255,.22),rgba(34,211,238,.10));
+    border:1px solid var(--line2)}
+  .mark svg{width:16px;height:16px}
+  .name{font-weight:900;font-size:19px;letter-spacing:-.02em}
+  .name b{color:var(--accent)}
+  .name span{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
+  .live{display:inline-flex;align-items:center;gap:7px;color:var(--sub);font-size:12.5px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 0 0 rgba(58,210,159,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,210,159,.45)}70%{box-shadow:0 0 0 7px rgba(58,210,159,0)}100%{box-shadow:0 0 0 0 rgba(58,210,159,0)}}
+  .grow{flex:1}
+  .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{background:transparent;border:0;color:var(--muted);font-family:inherit;
+    font-size:13px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;transition:.15s}
+  .seg button.on{background:var(--accent);color:#04121f}
+  .btn{background:var(--surface);border:1px solid var(--line);color:var(--sub);
+    font-family:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:11px;cursor:pointer}
+  .btn:hover{border-color:var(--line2);color:var(--ink)}
+
+  /* trust chips */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--sub)}
+  .chip:hover{border-color:var(--accent);color:var(--ink)}
+  .chip b{color:var(--ink);font-weight:700}
+
+  /* kpi */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:17px 18px;position:relative;overflow:hidden}
+  .kpi .lab{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.02em}
+  .kpi .val{font-size:30px;font-weight:900;letter-spacing:-.03em;margin-top:8px;line-height:1}
+  .kpi .sub{color:var(--sub);font-size:12.5px;margin-top:7px}
+  .kpi .val b{font-size:16px;font-weight:700;color:var(--sub);margin-left:3px}
+
+  /* panels */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;margin-bottom:16px}
+  .ph{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+  .ph h3{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em}
+  .ph .tag{font-size:11px;font-weight:700;color:var(--accent);background:rgba(51,187,255,.10);
+    border:1px solid rgba(51,187,255,.25);border-radius:999px;padding:2px 9px;text-transform:uppercase;letter-spacing:.04em}
+  .ph .new{color:var(--accent2);background:rgba(34,211,238,.10);border-color:rgba(34,211,238,.28)}
+  .ph .r{margin-left:auto;color:var(--muted);font-size:12.5px}
+
+  .mini{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:14px}
+  .mini > div{min-width:120px}
+  .mini .v{font-size:22px;font-weight:900;letter-spacing:-.02em}
+  .mini .l{color:var(--muted);font-size:12px;margin-top:2px}
+
+  /* tables */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+  th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+  th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  tr:last-child td{border-bottom:0}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;
+    border:1px solid var(--line2);color:var(--sub);background:var(--surface2)}
+  .pill.ok{color:var(--ok);border-color:rgba(58,210,159,.3);background:rgba(58,210,159,.08)}
+  .pill.bad{color:var(--bad);border-color:rgba(255,100,112,.3);background:rgba(255,100,112,.08)}
+  .pill.reg{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
+  .pill.pay{color:var(--accent2);border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.08)}
+  .cid{font-family:var(--mono);font-size:12px;color:var(--sub)}
+  .hash{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .args{font-family:var(--mono);font-size:12px;color:#9fb4d8;max-width:340px;overflow:hidden;text-overflow:ellipsis}
+
+  .subhead{font-size:12.5px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:8px;margin:4px 0 8px}
+  .subhead .pill{font-weight:600}
+  .scrolly{max-height:360px;overflow:auto}
+
+  /* bars */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar{display:grid;grid-template-columns:150px 1fr 46px;align-items:center;gap:10px;font-size:13px}
+  .bar .t{color:var(--sub);font-family:var(--mono);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track{height:9px;background:var(--surface2);border-radius:6px;overflow:hidden}
+  .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px}
+  .bar .n{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums;font-size:12.5px}
+
+  .cols{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+
+  /* simple area chart */
+  .chart{width:100%;height:180px}
+  .foot{color:var(--muted);font-size:12px;margin-top:18px;line-height:1.7}
+
+  @media(max-width:900px){ .cols{grid-template-columns:1fr} }
+  @media(max-width:680px){
+    .kpis{grid-template-columns:1fr 1fr}
+    /* stacked "cards" for data tables on mobile — every cell labelled */
+    table.resp{min-width:0}
+    table.resp thead{display:none}
+    table.resp tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:6px 12px;background:var(--surface2)}
+    table.resp td{display:flex;justify-content:space-between;gap:14px;border:0;padding:7px 0;white-space:normal}
+    table.resp td::before{content:attr(data-l);color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;flex:0 0 auto}
+    table.resp td.args{max-width:none;text-align:right}
+    .args{max-width:none;white-space:normal;word-break:break-all}
+  }
+  @media(prefers-reduced-motion:reduce){ .dot{animation:none} *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="logo">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2l7 6-7 14-7-14 7-6z" stroke="#33bbff" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.2" fill="#22d3ee"/></svg></div>
+      <div class="name"><b>XRP</b>Name <span>· MCP usage</span></div>
+    </div>
+    <span class="live"><span class="dot"></span> live · updated 12s ago</span>
+    <div class="grow"></div>
+    <div class="seg"><button class="on">Daily</button><button>Weekly</button><button>Monthly</button></div>
+    <button class="btn">Refresh</button>
+  </div>
+
+  <div class="chips">
+    <a class="chip" href="#">npm · <b>@xrpname/xrpname-mcp</b></a>
+    <a class="chip" href="#">GitHub</a>
+    <a class="chip" href="#">PulseMCP</a>
+    <a class="chip" href="#">MCP Sentinel</a>
+    <a class="chip" href="#">PolicyLayer · <b>1,908 tok</b></a>
+    <a class="chip" href="#">xrpdomains.xyz/agent</a>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab">CLIENT CONNECTIONS</div><div class="val">1,284</div><div class="sub">real clients · excl. 96 probes</div></div>
+    <div class="kpi"><div class="lab">UNIQUE CLIENTS</div><div class="val">312</div><div class="sub">last 30 days</div></div>
+    <div class="kpi"><div class="lab">CLIENT TOOL CALLS</div><div class="val">8,740</div><div class="sub">9,102 total incl. probes</div></div>
+    <div class="kpi"><div class="lab">ERROR RATE</div><div class="val">0.6<b>%</b></div><div class="sub">54 errors total</div></div>
+  </div>
+
+  <!-- x402 -->
+  <div class="panel">
+    <div class="ph"><h3>x402 on-chain activity</h3><span class="tag">XRPL mainnet</span><span class="r">settles payer → merchant</span></div>
+    <div class="mini">
+      <div><div class="v">37</div><div class="l">x402 payments</div></div>
+      <div><div class="v">1,842.5 <span style="font-size:13px;color:var(--sub)">XRP</span></div><div class="l">settled</div></div>
+      <div><div class="v">29</div><div class="l">domains minted</div></div>
+    </div>
+    <div class="tw"><table class="resp">
+      <thead><tr><th>When</th><th>Item</th><th class="num">Amount</th><th>Payer</th><th>Tx</th></tr></thead>
+      <tbody>
+        <tr><td data-l="When">18s ago</td><td data-l="Item"><span class="pill reg">register</span> alice.xrp</td><td data-l="Amount" class="num">60 XRP</td><td data-l="Payer" class="cid">rB2f…9kQz</td><td data-l="Tx"><a class="mono" href="#">C397A0B5…</a></td></tr>
+        <tr><td data-l="When">4m ago</td><td data-l="Item"><span class="pill pay">pay</span> demo-tips</td><td data-l="Amount" class="num">2.5 XRP</td><td data-l="Payer" class="cid">rH41…n9jE</td><td data-l="Tx"><a class="mono" href="#">8B120C77…</a></td></tr>
+        <tr><td data-l="When">22m ago</td><td data-l="Item"><span class="pill reg">register</span> defi.xrpl</td><td data-l="Amount" class="num">45 XRP</td><td data-l="Payer" class="cid">rXaP…7Wtu</td><td data-l="Tx"><a class="mono" href="#">895F6B8A…</a></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- AUDIT TRAIL (new) -->
+  <div class="panel">
+    <div class="ph"><h3>Audit trail</h3><span class="tag new">verifiable</span><span class="r">one row per request · tamper-evident</span></div>
+    <div class="tw"><table class="resp">
+      <thead><tr><th>Client</th><th>Action</th><th>x402 terms</th><th>State</th><th class="num">Tokens</th><th>Result hash</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-l="Client" class="cid">c_7f3a…b1</td>
+          <td data-l="Action"><b>register_domain</b></td>
+          <td data-l="Terms" class="mono">60 XRP → rAaz…v1q9</td>
+          <td data-l="State"><span class="pill ok">tx C397A0B5…</span></td>
+          <td data-l="Tokens" class="num">312</td>
+          <td data-l="Hash" class="hash">sha256:9e4c…a2</td>
+        </tr>
+        <tr>
+          <td data-l="Client" class="cid">c_1b90…e4</td>
+          <td data-l="Action"><b>x402 pay</b> · demo-tips</td>
+          <td data-l="Terms" class="mono">2.5 XRP → rMer…8f2</td>
+          <td data-l="State"><span class="pill ok">tx 8B120C77…</span></td>
+          <td data-l="Tokens" class="num">148</td>
+          <td data-l="Hash" class="hash">sha256:1a7f…c0</td>
+        </tr>
+        <tr>
+          <td data-l="Client" class="cid">c_7f3a…b1</td>
+          <td data-l="Action"><b>register_domain</b></td>
+          <td data-l="Terms" class="mono">45 XRP → rAaz…v1q9</td>
+          <td data-l="State"><span class="pill bad">refused · amount_mismatch</span></td>
+          <td data-l="Tokens" class="num">96</td>
+          <td data-l="Hash" class="hash">sha256:4b3e…d9</td>
+        </tr>
+        <tr>
+          <td data-l="Client" class="cid">c_9c22…7a</td>
+          <td data-l="Action"><b>resolve_address</b></td>
+          <td data-l="Terms" class="mono">—</td>
+          <td data-l="State"><span class="pill ok">ok</span></td>
+          <td data-l="Tokens" class="num">220</td>
+          <td data-l="Hash" class="hash">sha256:e8d1…5f</td>
+        </tr>
+        <tr>
+          <td data-l="Client" class="cid">c_9c22…7a</td>
+          <td data-l="Action"><b>check_domains</b></td>
+          <td data-l="Terms" class="mono">—</td>
+          <td data-l="State"><span class="pill ok">ok</span></td>
+          <td data-l="Tokens" class="num">218</td>
+          <td data-l="Hash" class="hash">sha256:77ab…10</td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="ph"><h3>Connections &amp; tool calls</h3><span class="r">last 14 days</span></div>
+      <svg class="chart" viewBox="0 0 560 180" preserveAspectRatio="none">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#33bbff" stop-opacity=".35"/><stop offset="1" stop-color="#33bbff" stop-opacity="0"/></linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".22"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0,150 40,140 80,120 120,128 160,96 200,104 240,72 280,80 320,58 360,66 400,44 440,52 480,34 520,40 560,26 560,180 0,180Z" fill="url(#g1)"/>
+        <path d="M0,150 40,140 80,120 120,128 160,96 200,104 240,72 280,80 320,58 360,66 400,44 440,52 480,34 520,40 560,26" fill="none" stroke="#33bbff" stroke-width="2"/>
+        <path d="M0,168 40,164 80,158 120,160 160,150 200,152 240,140 280,144 320,132 360,136 400,124 440,128 480,118 520,122 560,112" fill="none" stroke="#22d3ee" stroke-width="2" stroke-opacity=".9"/>
+      </svg>
+    </div>
+    <div class="panel">
+      <div class="ph"><h3>Tool calls by tool</h3></div>
+      <div class="bars">
+        <div class="bar"><span class="t">get_portfolio</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="n">3,120</span></div>
+        <div class="bar"><span class="t">resolve_address</span><span class="track"><span class="fill" style="width:74%"></span></span><span class="n">2,310</span></div>
+        <div class="bar"><span class="t">check_domains</span><span class="track"><span class="fill" style="width:58%"></span></span><span class="n">1,806</span></div>
+        <div class="bar"><span class="t">get_domain_profile</span><span class="track"><span class="fill" style="width:31%"></span></span><span class="n">964</span></div>
+        <div class="bar"><span class="t">register_domain</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="n">372</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="ph"><h3>Recent tool calls</h3></div>
+      <div class="tw scrolly"><table class="resp">
+        <thead><tr><th>When</th><th>Tool</th><th>Client</th><th>Arguments</th></tr></thead>
+        <tbody>
+          <tr><td data-l="When">6s ago</td><td data-l="Tool"><b>resolve_address</b></td><td data-l="Client" class="cid">c_9c22…7a</td><td data-l="Arguments" class="args">{"address":"rB2f…9kQz"}</td></tr>
+          <tr><td data-l="When">31s ago</td><td data-l="Tool"><b>check_domains</b></td><td data-l="Client" class="cid">c_7f3a…b1</td><td data-l="Arguments" class="args">{"domains":["alice.xrp","bob.xrpl"]}</td></tr>
+          <tr><td data-l="When">1m ago</td><td data-l="Tool"><b>get_portfolio</b></td><td data-l="Client" class="cid">c_1b90…e4</td><td data-l="Arguments" class="args">{"address":"rH41…n9jE"}</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h3>Clients &amp; probes</h3></div>
+      <div class="subhead">Clients <span class="pill ok">real usage</span></div>
+      <div class="tw"><table class="resp">
+        <thead><tr><th>Agent</th><th class="num">Calls</th><th class="num">Conns</th></tr></thead>
+        <tbody>
+          <tr><td data-l="Agent">Claude</td><td data-l="Calls" class="num">4,120</td><td data-l="Conns" class="num">640</td></tr>
+          <tr><td data-l="Agent">Cursor</td><td data-l="Calls" class="num">2,980</td><td data-l="Conns" class="num">410</td></tr>
+          <tr><td data-l="Agent">Antigravity</td><td data-l="Calls" class="num">1,640</td><td data-l="Conns" class="num">234</td></tr>
+        </tbody>
+      </table></div>
+      <div class="subhead" style="margin-top:14px">Directory / health probes</div>
+      <div class="tw"><table class="resp">
+        <thead><tr><th>Agent</th><th class="num">Conns</th></tr></thead>
+        <tbody>
+          <tr><td data-l="Agent">glama</td><td data-l="Conns" class="num">41</td></tr>
+          <tr><td data-l="Agent">mcplookup-probe</td><td data-l="Conns" class="num">28</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><h3>Context efficiency</h3></div>
+    <div style="color:var(--sub);font-size:13.5px;max-width:70ch">These 10 tool definitions cost about <b style="color:var(--ink)">1,908 tokens</b> — roughly 1% of a 200k context window, around the median MCP server. Independently measured by <a href="#">PolicyLayer</a>.</div>
+  </div>
+
+  <div class="foot">
+    Read-only, no PII stored · payer addresses shortened, client ids are opaque salted hashes · x402 tx hashes are public on-ledger.<br/>
+    Public JSON API: <a href="#">/mcp/stats.json</a> · <a href="#">xrpdomains.xyz/agent</a>
+  </div>
+
+</div>
+</body>
+</html>

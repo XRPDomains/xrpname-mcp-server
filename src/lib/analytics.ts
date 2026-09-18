@@ -26,6 +26,23 @@ const MAX_IP_MAP = 20_000; // bound the in-memory ip→agent map
 const RECENT_MAX = 50; // ring buffer size for the recent-calls log
 const ARGS_MAX_CHARS = 300; // truncate stored tool arguments
 const X402_RECENT_MAX = 25; // ring buffer size for the x402 activity log
+const AUDIT_MAX = 40; // ring buffer size for the per-request audit trail
+
+// The real XRPName tools (mirrors src/tools/index.ts). The public dashboard only
+// shows these — scanner-injected names (run_shell, delete_user, __probe…) are
+// recorded but filtered out of tools / recent / audit so the page isn't misleading.
+const KNOWN_TOOLS = new Set([
+  'check_domains',
+  'recommend_domain',
+  'get_domain_profile',
+  'check_tx_status',
+  'check_order_status',
+  'get_pending_offers',
+  'get_portfolio',
+  'resolve_address',
+  'register_domain',
+  'set_primary_domain',
+]);
 
 // Directory crawlers / health probes that only `initialize` + `tools/list` to
 // index or monitor the server — NOT real end-user clients. Kept out of the
@@ -89,6 +106,19 @@ interface Store {
   // x402 on-chain activity (settled payments). Public-safe: tx hashes are
   // on-ledger, payer is shortened. Optional for back-compat with older files.
   x402?: X402Stats;
+  // per-request audit trail (one row per request): opaque client id, action,
+  // x402 terms, state (tx / refusal / ok), token estimate, tamper-evident hash.
+  audit?: AuditEntry[];
+}
+
+export interface AuditEntry {
+  ts: number;
+  cid: string; // opaque, salted client id (no PII)
+  action: string; // tool name, or "x402 register" / "x402 pay"
+  terms: string | null; // x402: "<amount> XRP → <payToShort>"; else null
+  state: string; // 'ok' | 'error' | 'tx:<hash>' | 'refused:<reason>'
+  tokens: number | null; // rough token estimate for the call (null for x402)
+  hash: string; // short sha256 digest over the recorded fields (tamper-evident)
 }
 
 interface X402Stats {
@@ -96,6 +126,10 @@ interface X402Stats {
   xrpDrops: number; // cumulative XRP volume in drops (integer, no float drift)
   minted: number; // successful domain mints via x402
   recent: X402Event[];
+  regs?: number; // register payments
+  pays?: number; // gateway pay payments
+  payers?: string[]; // distinct payer short-addresses (bounded)
+  days?: Record<string, number>; // YYYY-MM-DD -> drops settled that day
 }
 
 export interface X402Event {
@@ -184,6 +218,7 @@ export class Analytics {
           parsed.links = parsed.links ?? {}; // back-compat with pre-links files
           parsed.recent = parsed.recent ?? [];
           parsed.x402 = parsed.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] };
+          parsed.audit = parsed.audit ?? [];
           return parsed;
         }
       } catch {
@@ -203,7 +238,26 @@ export class Analytics {
       links: {},
       recent: [],
       x402: { payments: 0, xrpDrops: 0, minted: 0, recent: [] },
+      audit: [],
     };
+  }
+
+  /** Opaque, salted client id (no PII) from ip+ua. */
+  private cidFor(ip?: string | null, ua?: string | null): string {
+    const basis = (ip || '') + '|' + (ua || '');
+    if (!ip && !ua) return 'c_anon';
+    return 'c_' + createHash('sha256').update(this.store.salt + '|' + basis).digest('hex').slice(0, 8);
+  }
+
+  /** Short, salted digest over the recorded audit fields (tamper-evident). */
+  private auditHash(parts: string): string {
+    return createHash('sha256').update(this.store.salt + '|' + parts).digest('hex').slice(0, 12);
+  }
+
+  private pushAudit(e: AuditEntry): void {
+    const arr = (this.store.audit = this.store.audit ?? []);
+    arr.push(e);
+    if (arr.length > AUDIT_MAX) arr.splice(0, arr.length - AUDIT_MAX);
   }
 
   /** Stable short key for a User-Agent (avoids storing raw UA strings). */
@@ -296,6 +350,18 @@ export class Analytics {
         args: compactArgs(input.args),
       });
       if (s.recent.length > RECENT_MAX) s.recent.splice(0, s.recent.length - RECENT_MAX);
+
+      // audit trail — one row per tool call
+      const argStr = compactArgs(input.args);
+      this.pushAudit({
+        ts: now,
+        cid: this.cidFor(input.ip, input.ua),
+        action: tool,
+        terms: null,
+        state: input.outcome === 'error' ? 'error' : 'ok',
+        tokens: Math.max(1, Math.ceil(argStr.length / 4)),
+        hash: this.auditHash(tool + '|' + argStr + '|' + input.outcome),
+      });
     }
 
     this.prune();
@@ -313,12 +379,25 @@ export class Analytics {
     payer: string;
     tx: string;
     mintTx?: string | null;
+    payTo?: string | null;
   }): void {
     if (!this.enabled) return;
     const x = (this.store.x402 = this.store.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] });
+    const dropsAdd = Math.max(0, Math.round((evt.amountXrp || 0) * 1_000_000));
     x.payments += 1;
-    x.xrpDrops += Math.max(0, Math.round((evt.amountXrp || 0) * 1_000_000));
+    x.xrpDrops += dropsAdd;
     if (evt.kind === 'register' && evt.mintTx) x.minted += 1;
+    if (evt.kind === 'register') x.regs = (x.regs ?? 0) + 1;
+    else x.pays = (x.pays ?? 0) + 1;
+    const ps = (x.payers = x.payers ?? []);
+    const pshort = shortenAddresses(evt.payer || '');
+    if (pshort && ps.indexOf(pshort) === -1) {
+      ps.push(pshort);
+      if (ps.length > 2000) ps.splice(0, ps.length - 2000);
+    }
+    const dayK = new Date().toISOString().slice(0, 10);
+    x.days = x.days ?? {};
+    x.days[dayK] = (x.days[dayK] ?? 0) + dropsAdd;
     x.recent.push({
       ts: Date.now(),
       kind: evt.kind,
@@ -329,6 +408,38 @@ export class Analytics {
       mintTx: evt.mintTx ?? null,
     });
     if (x.recent.length > X402_RECENT_MAX) x.recent.splice(0, x.recent.length - X402_RECENT_MAX);
+
+    const payToShort = evt.payTo ? shortenAddresses(evt.payTo) : '';
+    this.pushAudit({
+      ts: Date.now(),
+      cid: 'c_' + createHash('sha256').update(this.store.salt + '|' + (evt.payer || '')).digest('hex').slice(0, 8),
+      action: 'x402 ' + evt.kind,
+      terms: (evt.amountXrp || 0) + ' XRP' + (payToShort ? ' → ' + payToShort : ''),
+      state: evt.tx ? 'tx:' + evt.tx : 'ok',
+      tokens: null,
+      hash: this.auditHash('x402|' + evt.kind + '|' + clean(evt.item || '') + '|' + (evt.tx || '')),
+    });
+    this.scheduleSave();
+  }
+
+  /** Record a refused/failed x402 request (payment failed, taken, mint failed). */
+  recordX402Refusal(evt: {
+    kind: 'register' | 'pay';
+    item: string;
+    reason: string;
+    payer?: string | null;
+    amountXrp?: number | null;
+  }): void {
+    if (!this.enabled) return;
+    this.pushAudit({
+      ts: Date.now(),
+      cid: 'c_' + createHash('sha256').update(this.store.salt + '|' + (evt.payer || '')).digest('hex').slice(0, 8),
+      action: 'x402 ' + evt.kind,
+      terms: evt.amountXrp ? evt.amountXrp + ' XRP' : clean(evt.item || ''),
+      state: 'refused:' + clean(evt.reason || 'error'),
+      tokens: null,
+      hash: this.auditHash('x402refuse|' + evt.kind + '|' + clean(evt.item || '') + '|' + clean(evt.reason || '')),
+    });
     this.scheduleSave();
   }
 
@@ -398,6 +509,7 @@ export class Analytics {
     });
 
     const toolTotals = Object.entries(s.tools)
+      .filter(([name]) => KNOWN_TOOLS.has(name)) // hide scanner-injected tool names
       .map(([name, v]) => ({ name, ok: v.ok, error: v.error, total: v.ok + v.error }))
       .sort((a, b) => b.total - a.total);
 
@@ -435,7 +547,7 @@ export class Analytics {
       clients,
       probes,
       series, // daily; dashboard rolls up to weekly/monthly
-      recent: s.recent.slice(-25).reverse(), // newest first
+      recent: s.recent.filter((r) => KNOWN_TOOLS.has(r.tool)).slice(-25).reverse(), // known tools only, newest first
     };
 
     // x402 on-chain activity — public-safe (tx hashes on-ledger, payer shortened).
@@ -444,8 +556,21 @@ export class Analytics {
       payments: x.payments,
       xrpVolume: x.xrpDrops / 1_000_000,
       minted: x.minted,
+      regs: x.regs ?? 0,
+      pays: x.pays ?? 0,
+      uniquePayers: (x.payers ?? []).length,
+      series: Object.keys(x.days ?? {})
+        .sort()
+        .map((d) => ({ date: d, xrp: ((x.days as Record<string, number>)[d] ?? 0) / 1_000_000 })),
       recent: x.recent.slice(-15).reverse(),
     };
+
+    // per-request audit trail (public-safe: cid opaque, terms shortened, hash digest).
+    // Keep x402 actions + known tools; drop scanner-injected tool names.
+    out.audit = (s.audit ?? [])
+      .filter((a) => a.action && (a.action.indexOf('x402 ') === 0 || KNOWN_TOOLS.has(a.action)))
+      .slice(-30)
+      .reverse();
 
     if (detail) {
       out.methods = s.methods;

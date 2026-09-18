@@ -26,7 +26,7 @@ import type { Deps } from '../types/deps.js';
 import type { Analytics } from '../lib/analytics.js';
 
 export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytics?: Analytics): void {
-  const { gateway, x402, registration } = deps.config;
+  const { gateway, x402, registration, webBase } = deps.config;
   if (!gateway.enabled) return;
 
   const registry = loadGatewayRegistry(gateway.projectsFile);
@@ -72,11 +72,13 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
         amountDrops,
         invoiceId,
         sourceTag,
-        resource: `pay:${projectId}`,
+        resourceUrl: webBase + '/x402/' + projectId + '/pay',
         description: `${project.name} payment (${amountXrp} XRP)`,
       });
       reply.header('PAYMENT-REQUIRED', encodeHeader(challenge));
-      return reply.code(402).send({ x402Version: challenge.x402Version, accepts: challenge.accepts, projectId, price_xrp: amountXrp });
+      // Body mirrors the PAYMENT-REQUIRED header (full x402 v2 PaymentRequired,
+      // incl. the `resource` object) plus convenience fields.
+      return reply.code(402).send({ ...challenge, projectId, price_xrp: amountXrp });
     }
 
     // Step 2 — settle via facilitator against the SERVER's authoritative terms.
@@ -88,11 +90,12 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
 
     const settle = await settleWithFacilitator(x402.facilitatorUrl, sig, requirement);
     if (!settle.success || !settle.transaction || !settle.payer) {
+      analytics?.recordX402Refusal({ kind: 'pay', item: projectId, reason: settle.error || 'PAYMENT_FAILED', amountXrp: amountXrp });
       return reply.code(402).send({ error: 'PAYMENT_FAILED', detail: settle.error });
     }
 
     // Record x402 on-chain activity for the public dashboard.
-    analytics?.recordX402({ kind: 'pay', item: projectId, amountXrp: amountXrp, payer: settle.payer, tx: settle.transaction });
+    analytics?.recordX402({ kind: 'pay', item: projectId, amountXrp: amountXrp, payer: settle.payer, tx: settle.transaction, payTo: project.payTo });
 
     reply.header(
       'PAYMENT-RESPONSE',

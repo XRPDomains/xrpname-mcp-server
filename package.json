@@ -50,6 +50,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "smoke": "node scripts/smoke-test.mjs",
     "pack": "node scripts/pack.mjs",
+    "backfill": "node scripts/backfill-x402.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

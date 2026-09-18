@@ -129,6 +129,13 @@ Step 5 = take `accept_offer_template`, add `Account = owner`, autofill, sign, su
 - **Two requests, one payment.** The no-signature call is a free quote; only the
   call carrying `PAYMENT-SIGNATURE` moves funds. Confirm the quoted price with the
   user between the two.
+- **RPC rate limits.** Public XRPL nodes (xrplcluster.com) may return `tooBusy`
+  when submitting the AcceptOffer. `buy.mjs` / `accept-offer.mjs` automatically
+  rotate through fallback RPCs (s1/s2.ripple.com); set `XRPL_RPC_FALLBACKS` to
+  customize. AcceptOffer is idempotent, so a retry on another node is safe.
+- **402 body is standard x402 v2.** The response includes a proper `resource`
+  object `{ url, description, mimeType }` (not a string), so `x402-xrpl` clients
+  parse it without a compat shim.
 
 ## Errors & recovery
 

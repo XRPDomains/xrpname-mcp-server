@@ -19,6 +19,34 @@ const resourceUrl = process.env.RESOURCE_URL ?? 'https://xrpdomains.xyz/mcp/x402
 const domain = process.argv[2] ?? process.env.DOMAIN;
 const network = process.env.XRPL_NETWORK ?? 'xrpl:0';
 const rpc = process.env.XRPL_RPC ?? (network === 'xrpl:1' ? 'wss://s.altnet.rippletest.net:51233' : 'wss://xrplcluster.com');
+// RPC fallbacks — public nodes rate-limit (tooBusy); rotate on busy/network errors.
+const rpcList = [rpc, ...(process.env.XRPL_RPC_FALLBACKS ? process.env.XRPL_RPC_FALLBACKS.split(',') : (network === 'xrpl:1' ? [] : ['wss://s1.ripple.com:51233', 'wss://s2.ripple.com:51233']))]
+  .map((s) => s.trim())
+  .filter((v, i, a) => v && a.indexOf(v) === i);
+
+// AcceptOffer is idempotent (a sell offer is consumed once), so re-trying on a
+// different RPC is safe. Autofill + sign + submit per node; rotate on busy errors.
+async function acceptWithFallback(template, wallet, rpcs) {
+  let lastErr;
+  for (let i = 0; i < rpcs.length; i++) {
+    const client = new Client(rpcs[i]);
+    try {
+      await client.connect();
+      const prepared = await client.autofill({ ...template, Account: wallet.classicAddress });
+      const signed = wallet.sign(prepared);
+      return await client.submitAndWait(signed.tx_blob);
+    } catch (e) {
+      lastErr = e;
+      const msg = String((e && e.message) || e);
+      const retriable = /toobusy|too busy|busy|slowdown|ratelimit|429|econn|timeout|disconnect|network/i.test(msg);
+      console.warn('RPC ' + rpcs[i] + ' failed: ' + msg + (retriable && i < rpcs.length - 1 ? ' — trying next RPC…' : ''));
+      if (!retriable) throw e;
+    } finally {
+      try { await client.disconnect(); } catch {}
+    }
+  }
+  throw lastErr;
+}
 
 if (!seed) throw new Error('XRPL_BUYER_SEED is required — set it in .env');
 if (!domain) throw new Error('DOMAIN is required — a ROOT domain e.g. alice.xrp (not a subname)');
@@ -70,16 +98,8 @@ if (!tpl) {
 }
 
 console.log('\nAccepting the sell offer to take custody...');
-const client = new Client(rpc);
-await client.connect();
-try {
-  const prepared = await client.autofill({ ...tpl, Account: buyer.classicAddress });
-  const signed = buyer.sign(prepared);
-  const res = await client.submitAndWait(signed.tx_blob);
-  const code = res.result?.meta?.TransactionResult;
-  console.log(`AcceptOffer: ${code}  tx=${res.result?.hash}`);
-  if (code !== 'tesSUCCESS') process.exit(1);
-  console.log(`\n✅ Done — ${domain} is now in ${buyer.classicAddress}`);
-} finally {
-  await client.disconnect();
-}
+const res = await acceptWithFallback(tpl, buyer, rpcList);
+const code = res.result?.meta?.TransactionResult;
+console.log(`AcceptOffer: ${code}  tx=${res.result?.hash}`);
+if (code !== 'tesSUCCESS') process.exit(1);
+console.log(`\n✅ Done — ${domain} is now in ${buyer.classicAddress}`);

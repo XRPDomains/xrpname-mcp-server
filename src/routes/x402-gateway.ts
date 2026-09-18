@@ -1,7 +1,7 @@
 /**
  * x402 Gateway for XRPL — Phase 1 (pay-only, multi-tenant, non-custodial).
  *
- * POST /x402/:projectId/pay
+ * GET|POST /mcp/x402/pay/:projectId
  *   - no PAYMENT-SIGNATURE  → 402 with the project's payTo + price (free quote).
  *   - with PAYMENT-SIGNATURE → facilitator verify+settle (payer → project.payTo)
  *                              → 200 receipt.
@@ -11,7 +11,7 @@
  * project registry, never from the payer.
  */
 import { randomUUID } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   buildChallenge,
   caip2,
@@ -32,7 +32,10 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
   const registry = loadGatewayRegistry(gateway.projectsFile);
   const network = registration.network;
 
-  app.post('/x402/:projectId/pay', async (req, reply) => {
+  // Mounted under /mcp so the existing `^mcp` IIS reverse-proxy rule routes it
+  // (paths outside /mcp fall through to the website SPA). GET + POST: a bare
+  // GET returns the 402 quote so directory crawlers (xrpl-ai.org) can verify it.
+  const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     const projectId = (req.params as { projectId?: string }).projectId ?? '';
     const project = registry.get(projectId);
     if (!project || !project.active) {
@@ -51,13 +54,15 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
       const body = req.body as { amount?: unknown } | undefined;
       const query = req.query as { amount?: unknown } | undefined;
       const requested = Number(body?.amount ?? query?.amount);
-      if (!Number.isFinite(requested)) {
-        return reply.code(400).send({ error: 'AMOUNT_REQUIRED', min: project.price.min, max: project.price.max });
+      if (Number.isFinite(requested)) {
+        if (requested < project.price.min || requested > project.price.max) {
+          return reply.code(400).send({ error: 'AMOUNT_OUT_OF_RANGE', min: project.price.min, max: project.price.max });
+        }
+        amountXrp = requested;
+      } else {
+        // Bare quote (e.g. a crawler GET with no amount) → quote at the floor.
+        amountXrp = project.price.min;
       }
-      if (requested < project.price.min || requested > project.price.max) {
-        return reply.code(400).send({ error: 'AMOUNT_OUT_OF_RANGE', min: project.price.min, max: project.price.max });
-      }
-      amountXrp = requested;
     }
     const amountDrops = String(Math.round(amountXrp * 1_000_000));
     const sourceTag = project.sourceTag ?? x402.sourceTag;
@@ -72,7 +77,7 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
         amountDrops,
         invoiceId,
         sourceTag,
-        resourceUrl: webBase + '/x402/' + projectId + '/pay',
+        resourceUrl: webBase + '/mcp/x402/pay/' + projectId,
         description: `${project.name} payment (${amountXrp} XRP)`,
       });
       reply.header('PAYMENT-REQUIRED', encodeHeader(challenge));
@@ -109,5 +114,8 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: Deps, analytic
       payer: settle.payer,
       success_url: project.successUrl ?? null,
     });
-  });
+  };
+
+  app.get('/mcp/x402/pay/:projectId', handler);
+  app.post('/mcp/x402/pay/:projectId', handler);
 }

@@ -23,7 +23,7 @@ Two audiences: **Projects** (get paid) and **Payers** (agents/apps that pay).
    - `price` — `{ mode: "fixed", amount }` or `{ mode: "range", min, max }` (e.g.
      tips where the payer chooses within a range).
    - optional `successUrl`, `sourceTag`.
-2. Share your endpoint: `https://xrpdomains.xyz/x402/{projectId}/pay`.
+2. Share your endpoint: `https://xrpdomains.xyz/mcp/x402/pay/{projectId}`.
 
 That's it — the gateway issues the 402 with your `payTo` + price and settles to
 you. You never hand the gateway a key, and the payer can't lower the price (the
@@ -45,14 +45,14 @@ in `.env` for dev, KMS/MPC signer for prod — never a personal main wallet).
 ```bash
 npm install
 cp .env.example .env      # set XRPL_SEED
-node pay.mjs https://xrpdomains.xyz/x402/demo-tips/pay
+node pay.mjs https://xrpdomains.xyz/mcp/x402/pay/demo-tips
 ```
 
 `pay.mjs` handles the 402, signs the Payment, and prints the receipt.
 
 ## HTTP contract
 
-`POST https://xrpdomains.xyz/x402/{projectId}/pay`
+`POST https://xrpdomains.xyz/mcp/x402/pay/{projectId}`
 
 1. **No payment header** → **402** with a `PAYMENT-REQUIRED` challenge
    `accepts[0]: { scheme:"exact", network, asset:"XRP", payTo, amount (drops),

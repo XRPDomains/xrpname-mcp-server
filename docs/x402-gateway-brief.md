@@ -30,7 +30,7 @@ a **no-code, hosted** layer for non-devs — token owners, NFT creators, web3 sh
 
 ## Assets already built (currently inside the `xrpname-mcp-server` repo — extract to a new repo)
 
-- `src/routes/x402-gateway.ts` — Phase 1 endpoint `POST /x402/:projectId/pay`
+- `src/routes/x402-gateway.ts` — Phase 1 endpoint `GET|POST /mcp/x402/pay/:projectId`
   (non-custodial; price + payTo decided server-side; free 402 quote; facilitator settle).
 - `src/lib/gateway-registry.ts` — project registry (payTo + price) from a JSON file.
 - `src/lib/x402.ts` — x402 protocol glue (challenge, decode, facilitator verify/settle).

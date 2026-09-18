@@ -31,7 +31,7 @@ Real example schema (from `agentnomos.com/.well-known/x402`):
    team drops at the site root — it is NOT under the `/mcp` reverse proxy.
 2. **Make sure a listed resource returns `402`** on the hub's probe (GET then POST)
    with a `PAYMENT-REQUIRED` header naming `network: xrpl:0` and our `payTo`. The
-   gateway pay endpoint (`/x402/demo-tips/pay`) probes cleanly once the gateway is
+   gateway pay endpoint (`/mcp/x402/pay/demo-tips`) probes cleanly once the gateway is
    deployed; the register endpoint needs a `{ domain }` body, so the catalog entry
    carries the name/description that the hub ingests directly.
 3. **Register the origin** at `https://xrpl-ai.org/join/service` — submit

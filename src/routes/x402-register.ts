@@ -18,6 +18,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { priceXrp } from '../lib/pricing.js';
 import { createXrpDomainsAdapter } from '../adapters/xrpdomains-adapter.js';
 import type { MintAdapter } from '../lib/mint-adapter.js';
 import {
@@ -33,8 +34,28 @@ import type { Deps } from '../types/deps.js';
 import type { Analytics } from '../lib/analytics.js';
 
 export function registerX402Route(app: FastifyInstance, deps: Deps, analytics?: Analytics): void {
-  const { x402, registration, webBase } = deps.config;
+  const { x402, registration, webBase, basePriceXrp, discountPercent } = deps.config;
   const resourceUrl = webBase + '/mcp/x402/register';
+
+  // GET → a representative 402 quote so directory crawlers (xrpl-ai.org) can
+  // discover + verify this resource without a domain body. Real registration is
+  // POST { domain } below (per-domain price). This quote is not completable via GET.
+  app.get('/mcp/x402/register', async (_req, reply) => {
+    if (!x402.enabled) return reply.code(404).send({ error: 'NOT_ENABLED' });
+    const sampleXrp = x402.testPriceXrp > 0 ? x402.testPriceXrp : priceXrp(5, false, { basePriceXrp, discountPercent });
+    const amountDrops = String(Math.round(sampleXrp * 1_000_000));
+    const challenge = buildChallenge({
+      network: registration.network,
+      payTo: registration.contractAddress,
+      amountDrops,
+      invoiceId: makeInvoiceId('sample', randomUUID()),
+      sourceTag: x402.sourceTag,
+      resourceUrl,
+      description: 'Register an XRPName domain (.xrp/.xrpl/.xrpfi/.rlusd) via x402. POST { domain } for the exact per-domain price; this is a representative quote.',
+    });
+    reply.header('PAYMENT-REQUIRED', encodeHeader(challenge));
+    return reply.code(402).send({ ...challenge, note: 'POST { domain } to register a specific domain at its exact price.' });
+  });
 
   // First (and currently only) adapter. To support another issuer later, select
   // an adapter here (e.g. by a `kind` field on the request) — the rest is generic.

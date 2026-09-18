@@ -5,21 +5,12 @@
   "resources": [
     {
       "url": "https://xrpdomains.xyz/mcp/x402/register",
-      "methods": ["POST"],
+      "methods": ["GET", "POST"],
       "name": "Register an XRPName domain",
-      "description": "Buy and register a root XRPName domain (.xrp/.xrpl/.xrpfi/.rlusd) via x402: pay, mint, then sign NFTokenAcceptOffer. POST { domain }.",
+      "description": "Buy and register a root XRPName domain (.xrp/.xrpl/.xrpfi/.rlusd) via x402: pay, mint, then sign NFTokenAcceptOffer. GET returns a representative quote; POST { domain } registers a specific domain at its exact price.",
       "network": "xrpl:0",
       "asset": "XRP",
       "amount": "60000000"
-    },
-    {
-      "url": "https://xrpdomains.xyz/x402/demo-tips/pay",
-      "methods": ["GET", "POST"],
-      "name": "x402 Gateway — pay a project",
-      "description": "Non-custodial x402 payments gateway: any project registers a payTo + price and gets a pay endpoint. Demo tips resource.",
-      "network": "xrpl:0",
-      "asset": "XRP",
-      "amount": "1000000"
     }
   ]
 }

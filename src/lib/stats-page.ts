@@ -159,7 +159,7 @@ export const STATS_HTML = `<!doctype html>
   <div class="hikpis" id="x402hi" style="display:none"></div>
 
   <div class="panel" id="x402panel" style="display:none">
-    <div class="ph"><h3>x402 on-chain activity</h3><span class="tag">XRPL mainnet</span><a class="btnmini" style="margin-left:auto" href="https://github.com/XRPDomains/xrpname-mcp-server/tree/main/skills/xrpname-register" target="_blank" rel="noopener">Buy a domain via x402 →</a></div>
+    <div class="ph"><h3>x402 on-chain activity</h3><span class="tag">XRPL mainnet</span><a class="btnmini" style="margin-left:auto" href="https://xrpl-ai.org/address/raAyazbgEkwzLByXipQuPLWFfnsPS1v1q9" target="_blank" rel="noopener">xrpl-ai.org index →</a><a class="btnmini" href="https://github.com/XRPDomains/xrpname-mcp-server/tree/main/skills/xrpname-register" target="_blank" rel="noopener">Buy via x402 →</a></div>
     <div id="x402trend"></div>
     <div class="tw" id="x402recent"></div>
   </div>

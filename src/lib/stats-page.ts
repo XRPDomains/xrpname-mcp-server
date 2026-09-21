@@ -428,7 +428,9 @@ export const STATS_HTML = `<!doctype html>
 
   function agentTable(list){
     var rows=list.slice(0,12).map(function(x){
-      return '<tr><td data-l="Agent">'+esc(x.name)+'</td><td data-l="Calls" class="num">'+n(x.toolCalls||0)+'</td><td data-l="Conns" class="num">'+n(x.connections)+'</td></tr>';
+      var lbl=x.label||x.name;
+      var raw=(lbl!==x.name)?' <span class="sub" style="font-size:11px">('+esc(x.name)+')</span>':'';
+      return '<tr><td data-l="Agent">'+esc(lbl)+raw+'</td><td data-l="Calls" class="num">'+n(x.toolCalls||0)+'</td><td data-l="Conns" class="num">'+n(x.connections)+'</td></tr>';
     }).join('');
     return '<div class="tw"><table class="resp"><thead><tr><th>Agent</th><th class="num">Calls</th><th class="num">Conns</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }

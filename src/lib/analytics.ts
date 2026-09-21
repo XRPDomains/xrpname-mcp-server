@@ -75,6 +75,60 @@ const PROBE_PATTERNS = [
   /inspector/i,
 ];
 
+// Friendly display names for known clientInfo.name values (self-reported by the
+// MCP client on `initialize`). Keeps the raw name as the store key; only the
+// label shown on the dashboard is prettified.
+const CLIENT_LABELS: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'claude-ai': 'Claude',
+  claude: 'Claude',
+  'cursor-vscode': 'Cursor',
+  cursor: 'Cursor',
+  'codex-mcp-client': 'Codex',
+  codex: 'Codex',
+  cline: 'Cline',
+  continue: 'Continue',
+  windsurf: 'Windsurf',
+  'mcp-inspector': 'MCP Inspector',
+};
+
+// Generic clientInfo.name values that carry no real product identity — for these
+// we fall back to the User-Agent to guess the actual client.
+const GENERIC_NAMES = new Set(['', 'mcp', 'mcp-client', 'client', 'unknown', 'test', 'server', 'node']);
+
+// Map a User-Agent to a client label when clientInfo.name is generic. Ordered:
+// most specific first. Returns null when the UA is too generic (node/undici/etc.)
+// to identify a product.
+const UA_PATTERNS: Array<[RegExp, string]> = [
+  [/claude-code|claudecode/i, 'Claude Code'],
+  [/cursor/i, 'Cursor'],
+  [/codex/i, 'Codex'],
+  [/cline/i, 'Cline'],
+  [/continue/i, 'Continue'],
+  [/windsurf/i, 'Windsurf'],
+  [/claude|anthropic/i, 'Claude'],
+  [/chatgpt|openai/i, 'OpenAI'],
+  [/langchain/i, 'LangChain'],
+  [/vscode|visual-studio-code/i, 'VS Code'],
+  [/python-httpx|httpx/i, 'httpx'],
+  [/python-requests/i, 'python-requests'],
+  [/postman/i, 'Postman'],
+  [/insomnia/i, 'Insomnia'],
+  [/curl/i, 'curl'],
+];
+
+/** Best-effort friendly client label. Prefers a known clientInfo.name; for a
+ *  generic name, derives from the User-Agent; else keeps the raw name. */
+export function resolveClientLabel(name?: string | null, ua?: string | null): string {
+  const raw = (name || '').trim();
+  const key = raw.toLowerCase();
+  if (raw && !GENERIC_NAMES.has(key)) return CLIENT_LABELS[key] ?? raw;
+  if (ua) {
+    for (const [re, label] of UA_PATTERNS) if (re.test(ua)) return label;
+  }
+  return raw || 'unknown';
+}
+
 /** 'client' = real end-user MCP app; 'probe' = directory crawler / health check. */
 export function classifyAgent(name: string): 'client' | 'probe' {
   const n = (name || '').toLowerCase();
@@ -363,11 +417,13 @@ export class Analytics {
         const a = (s.agents[linked.name] = s.agents[linked.name] ?? { connections: 0, toolCalls: 0 });
         a.toolCalls += 1;
       }
-      // recent-calls log (newest last) — args are compacted + addresses shortened
+      // recent-calls log (newest last) — args are compacted + addresses shortened.
+      // Client label prefers the linked clientInfo.name, but a generic name like
+      // "mcp" is refined from this request's User-Agent (e.g. Cursor, Codex).
       s.recent.push({
         ts: now,
         tool,
-        agent: linked ? linked.name : null,
+        agent: resolveClientLabel(linked ? linked.name : null, input.ua),
         outcome: input.outcome,
         args: compactArgs(input.args),
       });
@@ -563,6 +619,7 @@ export class Analytics {
     const agentTotals = Object.entries(s.agents)
       .map(([name, v]) => ({
         name,
+        label: resolveClientLabel(name), // friendly display (name-only; no UA here)
         connections: v.connections,
         toolCalls: v.toolCalls ?? 0,
         kind: classifyAgent(name),

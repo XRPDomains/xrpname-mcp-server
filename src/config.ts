@@ -41,8 +41,9 @@ export interface X402Config {
 }
 
 export interface RlusdConfig {
-  /** Offer RLUSD as a second x402 asset alongside XRP. OFF until the merchant
-   *  wallet has an RLUSD trustline to receive. */
+  /** Offer RLUSD as a second x402 asset alongside XRP. ON by default — the
+   *  merchant wallet has an RLUSD trustline to receive. Set X402_RLUSD_ENABLED=false
+   *  to disable (e.g. a fork whose payTo wallet has no RLUSD trustline). */
   enabled: boolean;
   issuer: string; // RLUSD issuer (mainnet rMxCK…)
   currencyCode: string; // 40-hex currency code
@@ -123,7 +124,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0),
     },
     rlusd: {
-      enabled: bool(env.X402_RLUSD_ENABLED, false),
+      enabled: bool(env.X402_RLUSD_ENABLED, true),
       issuer: env.RLUSD_ISSUER ?? 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
       currencyCode: env.RLUSD_CURRENCY_CODE ?? '524C555344000000000000000000000000000000',
     },

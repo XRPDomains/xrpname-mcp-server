@@ -111,6 +111,7 @@ async function main(): Promise<void> {
     const label = requestLabel(parsed);
     const ip = clientIp(req);
     const ua = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null;
+    const country = typeof req.headers['cf-ipcountry'] === 'string' ? req.headers['cf-ipcountry'] : null;
     let outcome: 'ok' | 'error' = 'ok';
     const server = createMcpServer(deps);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -128,6 +129,7 @@ async function main(): Promise<void> {
           agentVersion: parsed.agentVersion,
           ip,
           ua,
+          country,
           args: parsed.args,
         });
         void transport.close();
@@ -144,6 +146,7 @@ async function main(): Promise<void> {
         agentVersion: parsed.agentVersion,
         ip,
         ua,
+        country,
         args: parsed.args,
       });
       logger.error({ err }, 'mcp request failed');

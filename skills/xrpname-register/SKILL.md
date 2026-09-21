@@ -1,6 +1,6 @@
 ---
 name: xrpname-register
-description: Buy/register an XRPName domain (.xrp, .xrpl, .xrpfi, .rlusd) on the XRP Ledger via the x402 agentic-payment protocol. Use when an agent needs to buy, register, mint, or claim an XRPL/XRP domain from a wallet it controls. Handles the full flow — request price (HTTP 402), sign the XRP Payment, then sign the NFTokenAcceptOffer to take custody. Root domains only.
+description: Buy/register an XRPName domain (.xrp, .xrpl, .xrpfi, .rlusd) on the XRP Ledger via the x402 agentic-payment protocol. Use when an agent needs to buy, register, mint, or claim an XRPL/XRP domain from a wallet it controls. Handles the full flow — request price (HTTP 402), sign the Payment (XRP or RLUSD), then sign the NFTokenAcceptOffer to take custody. Root domains only.
 ---
 
 # Register an XRPName domain via x402
@@ -58,7 +58,10 @@ Target must be a **ROOT** domain: one label + a supported TLD (`.xrp`, `.xrpl`,
 ```bash
 npm install
 cp .env.example .env      # then edit .env: set XRPL_BUYER_SEED
-node buy.mjs alice.xrp    # buy a specific domain
+node buy.mjs alice.xrp    # buy a specific domain (pays in XRP)
+
+# Pay in RLUSD instead (wallet must already hold an RLUSD trustline + balance):
+PAY_CURRENCY=RLUSD node buy.mjs alice.xrp
 ```
 
 `buy.mjs` does everything: sends the request, handles the 402, signs the
@@ -72,10 +75,14 @@ Endpoint: `POST https://xrpdomains.xyz/mcp/x402/register`
 1. **Request** — body `{ "domain": "alice.xrp" }`, no payment header yet. This
    first call **does not charge anything** — it is a free price quote. Use it to
    show the user the price and confirm before paying.
-2. **402 Payment Required** — base64 `PAYMENT-REQUIRED` header with the challenge
-   `accepts[0]`: `{ scheme:"exact", network:"xrpl:0", asset:"XRP", payTo,
-   amount (drops, string), maxTimeoutSeconds, extra:{ invoiceId, sourceTag } }`.
-   Body echoes `{ domain, price_xrp }` (`price_xrp` is human XRP; `amount` is drops).
+2. **402 Payment Required** — base64 `PAYMENT-REQUIRED` header with the challenge.
+   `accepts[]` lists the payment options the payer may choose from; the payer picks
+   one and pays it. `accepts[0]` is always XRP: `{ scheme:"exact", network:"xrpl:0",
+   asset:"XRP", payTo, amount (drops, string), maxTimeoutSeconds,
+   extra:{ invoiceId, sourceTag } }`. When RLUSD is enabled, `accepts[1]` is the
+   RLUSD option: same shape but `asset` = the 40-hex RLUSD currency code, `amount` =
+   a decimal RLUSD string, and `extra.issuer` = the RLUSD issuer. Body echoes
+   `{ domain, price_xrp }` (plus `price_rlusd` when offered; `amount` is drops for XRP).
    **The server sets the price** (from live pricing.json, by name length + TLD) —
    you cannot choose it. Read `amount` / `price_xrp` from this 402 and pay exactly
    that: the facilitator recomputes the required amount server-side and rejects
@@ -89,9 +96,10 @@ Endpoint: `POST https://xrpdomains.xyz/mcp/x402/register`
    `{ x402Version:2, accepted:<the requirement>, payload:{ signedTxBlob } }`.
    (The `x402-xrpl` package's `x402Fetch` automates all of this.)
 4. **200 OK** — server verified + settled via the facilitator, minted, and returns
-   `{ minted, domain, owner, nftoken_id, offer_id, mint_tx, payment_tx,
-   accept_offer_template }`, plus a base64 `PAYMENT-RESPONSE` header
-   `{ success, transaction, network, payer }`.
+   `{ minted, domain, owner, paid_currency, nftoken_id, offer_id, mint_tx,
+   payment_tx, accept_offer_template }`, plus a base64 `PAYMENT-RESPONSE` header
+   `{ success, transaction, network, payer }`. `paid_currency` is `"XRP"` or
+   `"RLUSD"`; RLUSD payments also carry `paid_rlusd` + `locked_rate`.
 5. **Take custody** — sign `accept_offer_template` (set `Account = payer`),
    `autofill` + `submit`. `tesSUCCESS` → the domain NFT is in the wallet.
 
@@ -102,6 +110,7 @@ Endpoint: `POST https://xrpdomains.xyz/mcp/x402/register`
   "minted": true,
   "domain": "alice.xrp",
   "owner": "rPAYER…",
+  "paid_currency": "XRP",
   "nftoken_id": "00080000413DEC6E282BBCEA55B71140D0CB35F01673BBE022700A0604ACA56B",
   "offer_id": "236D3652EAF0239A8FAC81076C0E3BE6B373DEFEC12EE5CE66DC4A7B7068F26D",
   "mint_tx": "…",
@@ -137,9 +146,41 @@ Step 5 = take `accept_offer_template`, add `Account = owner`, autofill, sign, su
   object `{ url, description, mimeType }` (not a string), so `x402-xrpl` clients
   parse it without a compat shim.
 
+## Paying in RLUSD
+
+The 402 may offer RLUSD as a second option in `accepts[]` alongside XRP. RLUSD is
+an XRPL IOU pegged 1:1 to USD; the server prices it as `XRP price × live XRP/USD
+rate` and **locks that amount per-invoice** at quote time, so pay exactly the
+`amount` on the RLUSD requirement (the facilitator re-checks it; a stale amount
+fails). To pay in RLUSD:
+
+- **Set `PAY_CURRENCY=RLUSD`.** `buy.mjs` then selects the RLUSD `accepts[]` option
+  (via a `paymentRequirementsSelector`) and signs an RLUSD `Payment` instead of XRP.
+- **Trustline + balance are required.** Sending RLUSD means the wallet must already
+  hold an RLUSD trustline to the issuer *and* enough RLUSD balance. `buy.mjs`
+  preflights both and stops with `TRUSTLINE_MISSING` or `INSUFFICIENT_RLUSD` rather
+  than signing a Payment that would fail on-ledger.
+- **Opening the trustline.** Set `RLUSD_AUTO_TRUSTLINE=1` to let the script submit a
+  `TrustSet` (costs ~0.2 XRP reserve). It never buys RLUSD for you — after the line
+  is open you still fund the wallet with RLUSD yourself, then re-run.
+- **Integrating your own client:** pick the `accepts[]` entry whose `asset` is the
+  RLUSD currency code, sign a `Payment` whose `Amount` is
+  `{ currency, issuer: extra.issuer, value: amount }`, invoice-bound and
+  source-tagged exactly as for XRP.
+
+RLUSD is only offered when the merchant has enabled it and its wallet holds an
+RLUSD trustline to receive. If you don't see an RLUSD option in `accepts[]`, pay
+in XRP.
+
 ## Errors & recovery
 
 - **Still 402 after paying** — payment did not complete; check seed / balance.
+- **`TRUSTLINE_MISSING` / `INSUFFICIENT_RLUSD`** (RLUSD only) — open an RLUSD
+  trustline (`RLUSD_AUTO_TRUSTLINE=1`) and fund the wallet with RLUSD, then re-run.
+- **402 `QUOTE_EXPIRED`** (RLUSD only) — the locked RLUSD quote timed out; request a
+  fresh 402 and pay within `maxTimeoutSeconds`.
+- **400 `UNSUPPORTED_ASSET`** — the chosen `accepts[]` asset isn't offered; pick XRP
+  or the advertised RLUSD option.
 - **400 `SUBNAME_NOT_SUPPORTED` / `INVALID_INPUT`** — use a root domain.
 - **409 `DOMAIN_TAKEN` / `DOMAIN_TAKEN_AFTER_PAYMENT`** — taken first; the second
   is a rare post-payment race — contact support with `payment_tx` for a refund.

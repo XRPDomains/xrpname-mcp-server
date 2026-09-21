@@ -6,10 +6,16 @@
  * daily / weekly / monthly. Persists to a JSON file so numbers survive restarts
  * and PM2 redeploys.
  *
- * Privacy: no raw IPs are stored — a "client" is identified only by a salted
- * SHA-256 hash of (ip + agent) for unique-visitor counts. The recent-calls log
- * keeps tool arguments (public read-only queries) with XRPL addresses shortened
- * to `rXXXX…XXXX` and each entry truncated.
+ * Privacy: the aggregate counters store no raw IPs — a "client" is identified
+ * only by a salted SHA-256 hash of (ip + agent) for unique-visitor counts. The
+ * recent-calls log keeps tool arguments (public read-only queries) with XRPL
+ * addresses shortened to `rXXXX…XXXX` and each entry truncated.
+ *
+ * Audit trail: each row carries a coarse country code (from Cloudflare's
+ * `cf-ipcountry`, no geoIP lookup) that IS public — it shows traffic is real
+ * humans across real geographies, without leaking PII. The raw IP is stored only
+ * on the bounded audit ring (≤ AUDIT_MAX rows) and is emitted ONLY in the
+ * token-gated detail snapshot — never on the public page.
  *
  * NOT using a DB on purpose: the volume is small, and a self-contained JSON
  * store keeps the dependency/audit surface tiny (same rationale as metrics.ts).
@@ -119,24 +125,30 @@ export interface AuditEntry {
   state: string; // 'ok' | 'error' | 'tx:<hash>' | 'refused:<reason>'
   tokens: number | null; // rough token estimate for the call (null for x402)
   hash: string; // short sha256 digest over the recorded fields (tamper-evident)
+  geo?: string | null; // ISO country code (Cloudflare cf-ipcountry) — PUBLIC-safe
+  ip?: string | null; // raw client IP — emitted ONLY in the token-gated detail view
 }
 
 interface X402Stats {
   payments: number; // settled x402 payments (register mints + gateway pays)
-  xrpDrops: number; // cumulative XRP volume in drops (integer, no float drift)
+  xrpDrops: number; // cumulative XRP-settled volume in drops (XRP payments only)
   minted: number; // successful domain mints via x402
   recent: X402Event[];
   regs?: number; // register payments
   pays?: number; // gateway pay payments
   payers?: string[]; // distinct payer short-addresses (bounded)
-  days?: Record<string, number>; // YYYY-MM-DD -> drops settled that day
+  days?: Record<string, number>; // YYYY-MM-DD -> XRP drops settled that day
+  rlusdCents?: number; // cumulative RLUSD-settled volume in cents (RLUSD payments only)
+  rlusdPayments?: number; // count of RLUSD-settled payments
 }
 
 export interface X402Event {
   ts: number;
   kind: 'register' | 'pay';
   item: string; // domain (register) or projectId (pay)
-  amountXrp: number;
+  amountXrp: number; // XRP-equivalent of the payment (for XRP-equiv aggregates)
+  currency?: 'XRP' | 'RLUSD'; // asset actually settled (defaults to XRP)
+  amount?: number; // amount paid in `currency` (e.g. RLUSD value, or XRP value)
   payer: string; // shortened rXXXX…XXXX
   tx: string; // settled payment tx hash (public on-ledger)
   mintTx: string | null;
@@ -158,7 +170,17 @@ export interface RecordInput {
   agentVersion?: string | null; // from clientInfo.version
   ip?: string | null; // real client ip (already extracted from CF/XFF)
   ua?: string | null; // User-Agent header (secondary attribution key)
+  country?: string | null; // ISO country code from Cloudflare cf-ipcountry (coarse geo)
   args?: unknown; // tool arguments (tools/call only) — for the recent-calls log
+}
+
+/** Normalise a Cloudflare country code. Returns null for missing / non-geo
+ *  placeholders (XX unknown, T1 Tor, empty). Uppercase 2-letter otherwise. */
+function normCountry(c?: string | null): string | null {
+  if (!c) return null;
+  const v = c.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(v) || v === 'XX' || v === 'T1') return null;
+  return v;
 }
 
 function today(): string {
@@ -353,6 +375,7 @@ export class Analytics {
 
       // audit trail — one row per tool call
       const argStr = compactArgs(input.args);
+      const geo = normCountry(input.country);
       this.pushAudit({
         ts: now,
         cid: this.cidFor(input.ip, input.ua),
@@ -360,7 +383,9 @@ export class Analytics {
         terms: null,
         state: input.outcome === 'error' ? 'error' : 'ok',
         tokens: Math.max(1, Math.ceil(argStr.length / 4)),
-        hash: this.auditHash(tool + '|' + argStr + '|' + input.outcome),
+        hash: this.auditHash(tool + '|' + argStr + '|' + input.outcome + '|' + (geo ?? '')),
+        geo,
+        ip: input.ip ?? null,
       });
     }
 
@@ -380,12 +405,17 @@ export class Analytics {
     tx: string;
     mintTx?: string | null;
     payTo?: string | null;
+    country?: string | null;
+    ip?: string | null;
+    currency?: 'XRP' | 'RLUSD';
+    amountPaid?: number | null; // amount in `currency`; defaults to amountXrp
   }): void {
     if (!this.enabled) return;
     const x = (this.store.x402 = this.store.x402 ?? { payments: 0, xrpDrops: 0, minted: 0, recent: [] });
+    const cur: 'XRP' | 'RLUSD' = evt.currency === 'RLUSD' ? 'RLUSD' : 'XRP';
+    const paid = evt.amountPaid != null ? evt.amountPaid : evt.amountXrp || 0;
     const dropsAdd = Math.max(0, Math.round((evt.amountXrp || 0) * 1_000_000));
     x.payments += 1;
-    x.xrpDrops += dropsAdd;
     if (evt.kind === 'register' && evt.mintTx) x.minted += 1;
     if (evt.kind === 'register') x.regs = (x.regs ?? 0) + 1;
     else x.pays = (x.pays ?? 0) + 1;
@@ -396,13 +426,23 @@ export class Analytics {
       if (ps.length > 2000) ps.splice(0, ps.length - 2000);
     }
     const dayK = new Date().toISOString().slice(0, 10);
-    x.days = x.days ?? {};
-    x.days[dayK] = (x.days[dayK] ?? 0) + dropsAdd;
+    // Volume is tracked per-asset so "XRP settled" stays pure XRP and RLUSD has
+    // its own total — the XRP-equiv (amountXrp) is kept on the event for context.
+    if (cur === 'RLUSD') {
+      x.rlusdCents = (x.rlusdCents ?? 0) + Math.max(0, Math.round(paid * 100));
+      x.rlusdPayments = (x.rlusdPayments ?? 0) + 1;
+    } else {
+      x.xrpDrops += dropsAdd;
+      x.days = x.days ?? {};
+      x.days[dayK] = (x.days[dayK] ?? 0) + dropsAdd;
+    }
     x.recent.push({
       ts: Date.now(),
       kind: evt.kind,
       item: clean(evt.item || ''),
       amountXrp: evt.amountXrp || 0,
+      currency: cur,
+      amount: paid,
       payer: shortenAddresses(evt.payer || ''),
       tx: evt.tx || '',
       mintTx: evt.mintTx ?? null,
@@ -410,14 +450,17 @@ export class Analytics {
     if (x.recent.length > X402_RECENT_MAX) x.recent.splice(0, x.recent.length - X402_RECENT_MAX);
 
     const payToShort = evt.payTo ? shortenAddresses(evt.payTo) : '';
+    const geo = normCountry(evt.country);
     this.pushAudit({
       ts: Date.now(),
       cid: 'c_' + createHash('sha256').update(this.store.salt + '|' + (evt.payer || '')).digest('hex').slice(0, 8),
       action: 'x402 ' + evt.kind,
-      terms: (evt.amountXrp || 0) + ' XRP' + (payToShort ? ' → ' + payToShort : ''),
+      terms: paid + ' ' + cur + (payToShort ? ' → ' + payToShort : ''),
       state: evt.tx ? 'tx:' + evt.tx : 'ok',
       tokens: null,
       hash: this.auditHash('x402|' + evt.kind + '|' + clean(evt.item || '') + '|' + (evt.tx || '')),
+      geo,
+      ip: evt.ip ?? null,
     });
     this.scheduleSave();
   }
@@ -429,6 +472,8 @@ export class Analytics {
     reason: string;
     payer?: string | null;
     amountXrp?: number | null;
+    country?: string | null;
+    ip?: string | null;
   }): void {
     if (!this.enabled) return;
     this.pushAudit({
@@ -439,6 +484,8 @@ export class Analytics {
       state: 'refused:' + clean(evt.reason || 'error'),
       tokens: null,
       hash: this.auditHash('x402refuse|' + evt.kind + '|' + clean(evt.item || '') + '|' + clean(evt.reason || '')),
+      geo: normCountry(evt.country),
+      ip: evt.ip ?? null,
     });
     this.scheduleSave();
   }
@@ -555,6 +602,8 @@ export class Analytics {
     out.x402 = {
       payments: x.payments,
       xrpVolume: x.xrpDrops / 1_000_000,
+      rlusdVolume: (x.rlusdCents ?? 0) / 100,
+      rlusdPayments: x.rlusdPayments ?? 0,
       minted: x.minted,
       regs: x.regs ?? 0,
       pays: x.pays ?? 0,
@@ -565,12 +614,17 @@ export class Analytics {
       recent: x.recent.slice(-15).reverse(),
     };
 
-    // per-request audit trail (public-safe: cid opaque, terms shortened, hash digest).
-    // Keep x402 actions + known tools; drop scanner-injected tool names.
+    // per-request audit trail (public-safe: cid opaque, terms shortened, hash
+    // digest, country coarse). The raw IP is emitted ONLY in the token-gated
+    // detail view — stripped from the public snapshot.
     out.audit = (s.audit ?? [])
       .filter((a) => a.action && (a.action.indexOf('x402 ') === 0 || KNOWN_TOOLS.has(a.action)))
       .slice(-30)
-      .reverse();
+      .reverse()
+      .map((a) => {
+        const { ip, ...pub } = a;
+        return detail ? { ...pub, ip: ip ?? null } : pub;
+      });
 
     if (detail) {
       out.methods = s.methods;

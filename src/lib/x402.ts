@@ -75,26 +75,48 @@ export interface BuildChallengeInput {
   description?: string;
   mimeType?: string;
   maxTimeoutSeconds?: number;
+  /** Extra payment options (e.g. RLUSD) appended after the XRP requirement. */
+  extraAccepts?: PaymentRequirement[];
 }
 
-/** Build the PAYMENT-REQUIRED challenge for an XRP payment (XRP-first PoC). */
+/** One payment option: XRP (asset "XRP", amount in drops) or an IOU/RLUSD
+ *  (asset = 40-hex currency code, amount = decimal string, issuer required). */
+export interface AssetAmount {
+  asset: string;
+  amount: string;
+  issuer?: string;
+}
+
+/** Build one PaymentRequirement for a given asset. */
+export function buildRequirement(
+  network: 'MAINNET' | 'TESTNET',
+  payTo: string,
+  a: AssetAmount,
+  invoiceId: string,
+  sourceTag: number = DEFAULT_SOURCE_TAG,
+  maxTimeoutSeconds: number = 600,
+): PaymentRequirement {
+  const extra: PaymentRequirement['extra'] = { invoiceId, sourceTag };
+  if (a.issuer) extra.issuer = a.issuer;
+  return { scheme: 'exact', network: caip2(network), asset: a.asset, payTo, amount: a.amount, maxTimeoutSeconds, extra };
+}
+
+/** Build the PAYMENT-REQUIRED challenge. XRP first; extraAccepts (e.g. RLUSD) after. */
 export function buildChallenge(input: BuildChallengeInput): Challenge {
+  const xrp = buildRequirement(
+    input.network,
+    input.payTo,
+    { asset: 'XRP', amount: input.amountDrops },
+    input.invoiceId,
+    input.sourceTag ?? DEFAULT_SOURCE_TAG,
+    input.maxTimeoutSeconds ?? 600,
+  );
   return {
     x402Version: X402_VERSION,
     resource: input.resourceUrl
       ? { url: input.resourceUrl, description: input.description, mimeType: input.mimeType ?? 'application/json' }
       : undefined,
-    accepts: [
-      {
-        scheme: 'exact',
-        network: caip2(input.network),
-        asset: 'XRP',
-        payTo: input.payTo,
-        amount: input.amountDrops,
-        maxTimeoutSeconds: input.maxTimeoutSeconds ?? 600,
-        extra: { invoiceId: input.invoiceId, sourceTag: input.sourceTag ?? DEFAULT_SOURCE_TAG },
-      },
-    ],
+    accepts: [xrp, ...(input.extraAccepts ?? [])],
   };
 }
 

@@ -7,6 +7,7 @@
  * template, post-mint hooks — lives behind a MintAdapter. XRPDomains is the
  * first adapter; adding another issuer = writing another adapter, no route edits.
  */
+import type { RlusdPaymentInfo } from './create-order.js';
 
 export interface MintQuote {
   available: boolean;
@@ -32,6 +33,10 @@ export interface FulfilInput {
   paymentTx: string;
   priceXrp: number;
   grossXrp: number;
+  /** Asset the payer settled in. Defaults to XRP. */
+  currency?: 'XRP' | 'RLUSD';
+  /** Server-locked RLUSD terms (rate + amount). Required when currency==='RLUSD'. */
+  rlusd?: RlusdPaymentInfo;
 }
 
 export interface MintAdapter {

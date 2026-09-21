@@ -100,6 +100,12 @@ export const STATS_HTML = `<!doctype html>
   .pill.reg{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
   .pill.pay{color:var(--accent2);border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.08)}
   .cid{font-family:var(--mono);font-size:12px;color:var(--sub)}
+  .cur{font-size:11px;font-weight:600;letter-spacing:.3px;padding:1px 6px;border-radius:5px;border:1px solid transparent;vertical-align:1px}
+  .cur.xrp{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
+  .cur.rlusd{color:#4ade80;border-color:rgba(74,222,128,.32);background:rgba(74,222,128,.1)}
+  .geo{display:inline-flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap}
+  .flagimg{height:13px;width:auto;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.1);display:block}
+  .ipline{font-size:11px;color:var(--muted);margin-top:3px}
   .hash{font-family:var(--mono);font-size:12px;color:var(--muted)}
   .args{font-family:var(--mono);font-size:12px;color:#9fb4d8;word-break:break-word}
   .subhead{font-size:12.5px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:8px;margin:4px 0 8px}
@@ -298,11 +304,15 @@ export const STATS_HTML = `<!doctype html>
     show('x402panel',true); show('x402hi',true);
     var hi=[
       {k:'x402 payments', v:n(x.payments)},
-      {k:'XRP settled', v:fx(x.xrpVolume)},
+      {k:'XRP settled', v:fx(x.xrpVolume)}
+    ];
+    // Only surface RLUSD volume once there's RLUSD activity (hide-empty theme).
+    if(x.rlusdVolume>0) hi.push({k:'RLUSD settled', v:fx(x.rlusdVolume)});
+    hi.push(
       {k:'Domains minted', v:n(x.minted)},
       {k:'Unique payers', v:n(x.uniquePayers)},
       {k:'Register / Pay', v:n(x.regs)+' / '+n(x.pays)}
-    ];
+    );
     el('x402hi').innerHTML = hi.map(function(c){ return '<div class="kpi x"><div class="lab">'+c.k+'</div><div class="val">'+c.v+'</div></div>'; }).join('');
     var series=x.series||[];
     el('x402trend').innerHTML = series.length>=2 ? x402ChartSVG(series) : '';
@@ -310,9 +320,12 @@ export const STATS_HTML = `<!doctype html>
       var kindPill='<span class="pill '+(e.kind==='pay'?'pay':'reg')+'">'+esc(e.kind)+'</span>';
       var item = (e.kind==='register' && e.item) ? '<a href="https://xrpdomains.xyz/name/'+encodeURIComponent(e.item)+'" target="_blank" rel="noopener">'+esc(e.item)+'</a>' : esc(e.item);
       var tx=e.tx?'<a class="mono" href="https://livenet.xrpl.org/transactions/'+esc(e.tx)+'" target="_blank" rel="noopener">'+esc(String(e.tx).slice(0,10))+'…</a>':'—';
+      var cur=e.currency||'XRP';
+      var amt=(e.amount!=null?e.amount:e.amountXrp);
+      var curCls=cur==='RLUSD'?'cur rlusd':'cur xrp';
       return '<tr><td data-l="When" style="color:var(--muted)">'+ago(e.ts)+'</td>'+
         '<td data-l="Item">'+kindPill+' '+item+'</td>'+
-        '<td data-l="Amount" class="num">'+fx(e.amountXrp)+' XRP</td>'+
+        '<td data-l="Amount" class="num">'+fx(amt)+' <span class="'+curCls+'">'+esc(cur)+'</span></td>'+
         '<td data-l="Payer" class="cid">'+esc(e.payer)+'</td>'+
         '<td data-l="Tx">'+tx+'</td></tr>';
     }).join('');
@@ -328,6 +341,21 @@ export const STATS_HTML = `<!doctype html>
     if(st==='error'){ return '<span class="pill bad">error</span>'; }
     return '<span class="pill ok">ok</span>';
   }
+  // ISO-3166 alpha-2 → flag image (SVG via flagcdn). Emoji flags don't render on
+  // Windows (no flag font), so use an <img> that works on every OS. Falls back to
+  // just the code if the image fails to load.
+  function flag(cc){
+    cc=String(cc||'').toLowerCase();
+    if(!/^[a-z]{2}$/.test(cc)) return '';
+    return '<img class="flagimg" src="https://flagcdn.com/'+cc+'.svg" alt="" loading="lazy" onerror="this.remove()">';
+  }
+  // Location cell: flag + country code (public). Raw IP only present in the
+  // token-gated detail snapshot — shown small + mono beneath when available.
+  function geoHtml(e){
+    var cc=e.geo?String(e.geo).toUpperCase():'';
+    var top=cc?('<span class="geo">'+flag(cc)+'<span>'+esc(cc)+'</span></span>'):'<span class="sub">—</span>';
+    return top+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
+  }
   function renderAudit(){
     var a=data.audit||[];
     if(!a.length){ show('auditpanel',false); return; }
@@ -335,6 +363,7 @@ export const STATS_HTML = `<!doctype html>
     var rows=a.map(function(e){
       return '<tr>'+
         '<td data-l="Client" class="cid">'+esc(e.cid)+'</td>'+
+        '<td data-l="Location">'+geoHtml(e)+'</td>'+
         '<td data-l="Action"><b>'+esc(e.action)+'</b></td>'+
         '<td data-l="Terms" class="mono">'+esc(e.terms||'—')+'</td>'+
         '<td data-l="State">'+stateHtml(e.state)+'</td>'+
@@ -342,7 +371,7 @@ export const STATS_HTML = `<!doctype html>
         '<td data-l="Hash" class="hash">'+(e.hash?'sha256:'+esc(e.hash):'—')+'</td>'+
         '</tr>';
     }).join('');
-    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>Client</th><th>Action</th><th>x402 terms</th><th>State</th><th class="num">Tokens</th><th>Result hash</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>Client</th><th>Location</th><th>Action</th><th>x402 terms</th><th>State</th><th class="num">Tokens</th><th>Result hash</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
 
   function chartSVG(rows){

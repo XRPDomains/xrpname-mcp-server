@@ -7,10 +7,25 @@
       "url": "https://xrpdomains.xyz/mcp/x402/register",
       "methods": ["GET", "POST"],
       "name": "Register an XRPName domain",
-      "description": "Buy and register a root XRPName domain (.xrp/.xrpl/.xrpfi/.rlusd) via x402: pay, mint, then sign NFTokenAcceptOffer. GET returns a representative quote; POST { domain } registers a specific domain at its exact price.",
+      "description": "Buy and register a root XRPName domain (.xrp/.xrpl/.xrpfi/.rlusd) via x402: pay in XRP or RLUSD, mint, then sign NFTokenAcceptOffer. GET returns a representative quote; POST { domain } registers a specific domain at its exact price. The live 402 lists every payment option in accepts[]; the payer picks one.",
       "network": "xrpl:0",
       "asset": "XRP",
-      "amount": "60000000"
+      "amount": "60000000",
+      "accepts": [
+        {
+          "scheme": "exact",
+          "network": "xrpl:0",
+          "asset": "XRP",
+          "amount": "60000000"
+        },
+        {
+          "scheme": "exact",
+          "network": "xrpl:0",
+          "asset": "524C555344000000000000000000000000000000",
+          "extra": { "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De" },
+          "note": "RLUSD (USD-pegged). Amount is priced from the XRP price at the live XRP/USD rate and locked per-invoice; read the exact figure from the 402."
+        }
+      ]
     }
   ]
 }

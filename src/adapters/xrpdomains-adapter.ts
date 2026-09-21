@@ -48,7 +48,13 @@ export function createXrpDomainsAdapter(deps: Deps): MintAdapter {
       return { available, priceXrp: net, grossXrp: gross };
     },
 
-    async fulfil({ item, payer, paymentTx, priceXrp: net, grossXrp }: FulfilInput): Promise<MintResult> {
+    async fulfil({ item, payer, paymentTx, priceXrp: net, grossXrp, currency = 'XRP', rlusd }: FulfilInput): Promise<MintResult> {
+      const isRlusd = currency === 'RLUSD' && !!rlusd;
+      // For RLUSD, amount is the locked RLUSD figure the payer sent on-chain and
+      // price is the pre-discount tier converted at the same locked rate — both in
+      // RLUSD so the backend's amount/price checks line up with payment_currency.
+      const amount = isRlusd ? Number(rlusd!.rlusdAmount) : net;
+      const price = isRlusd ? Math.round(grossXrp * rlusd!.lockedRate * 100) / 100 : grossXrp;
       const order = await deps.api.createOrder(
         buildCreateOrderPayload({
           domain: item,
@@ -57,10 +63,11 @@ export function createXrpDomainsAdapter(deps: Deps): MintAdapter {
           contractAddress: registration.contractAddress,
           baseUri: registration.nftBaseUri,
           network: registration.network,
-          amount: net,
-          price: grossXrp,
-          currency: 'XRP',
+          amount,
+          price,
+          currency: isRlusd ? 'RLUSD' : 'XRP',
           uuid: randomUUID(),
+          rlusd: isRlusd ? rlusd : undefined,
         }),
       );
       return {

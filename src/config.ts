@@ -40,6 +40,14 @@ export interface X402Config {
   testPriceXrp: number;
 }
 
+export interface RlusdConfig {
+  /** Offer RLUSD as a second x402 asset alongside XRP. OFF until the merchant
+   *  wallet has an RLUSD trustline to receive. */
+  enabled: boolean;
+  issuer: string; // RLUSD issuer (mainnet rMxCK…)
+  currencyCode: string; // 40-hex currency code
+}
+
 export interface GatewayConfig {
   /** x402 Gateway (Phase 1, pay-only, multi-tenant). */
   enabled: boolean;
@@ -62,6 +70,7 @@ export interface Config {
   analytics: AnalyticsConfig;
   registration: RegistrationConfig;
   x402: X402Config;
+  rlusd: RlusdConfig;
   gateway: GatewayConfig;
 }
 
@@ -112,6 +121,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       facilitatorUrl: env.X402_FACILITATOR_URL ?? 'https://xrpl-facilitator-mainnet.t54.ai',
       sourceTag: num(env.X402_SOURCE_TAG, 804681468),
       testPriceXrp: num(env.X402_TEST_PRICE_XRP, 0),
+    },
+    rlusd: {
+      enabled: bool(env.X402_RLUSD_ENABLED, false),
+      issuer: env.RLUSD_ISSUER ?? 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
+      currencyCode: env.RLUSD_CURRENCY_CODE ?? '524C555344000000000000000000000000000000',
     },
     gateway: {
       enabled: bool(env.GATEWAY_ENABLED, true),

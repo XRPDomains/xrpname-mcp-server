@@ -100,6 +100,13 @@ export const STATS_HTML = `<!doctype html>
   .pill.reg{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
   .pill.pay{color:var(--accent2);border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.08)}
   .cid{font-family:var(--mono);font-size:12px;color:var(--sub)}
+  .filterbar{display:flex;gap:8px;margin:0 0 14px}
+  .chip{font:inherit;font-size:12px;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;transition:.15s}
+  .chip:hover{color:var(--fg);border-color:rgba(51,187,255,.4)}
+  .chip.on{color:var(--accent);border-color:rgba(51,187,255,.5);background:rgba(51,187,255,.1)}
+  .pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px;color:var(--sub);font-size:13px}
+  .pager button{font:inherit;font-size:13px;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 12px;cursor:pointer}
+  .pager button:disabled{opacity:.35;cursor:default}
   .cur{font-size:11px;font-weight:600;letter-spacing:.3px;padding:1px 6px;border-radius:5px;border:1px solid transparent;vertical-align:1px}
   .cur.xrp{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
   .cur.rlusd{color:#4ade80;border-color:rgba(74,222,128,.32);background:rgba(74,222,128,.1)}
@@ -181,8 +188,14 @@ export const STATS_HTML = `<!doctype html>
   </div>
 
   <div class="panel" id="auditpanel" style="display:none">
-    <div class="ph"><h3>Audit trail</h3><span class="tag new">verifiable</span><span class="r">one row per request · tamper-evident</span><button class="btnmini" id="auditexport">Export JSON</button></div>
+    <div class="ph"><h3>Activity &amp; audit</h3><span class="tag new">verifiable</span><span class="r">one row per request · tamper-evident</span><button class="btnmini" id="auditexport">Export JSON</button></div>
+    <div class="filterbar" id="auditfilter">
+      <button class="chip on" data-f="all">All</button>
+      <button class="chip" data-f="tool">Tool calls</button>
+      <button class="chip" data-f="x402">x402</button>
+    </div>
     <div class="tw" id="auditbody"></div>
+    <div class="pager" id="auditpager"></div>
   </div>
 
   <div class="cols">
@@ -197,10 +210,6 @@ export const STATS_HTML = `<!doctype html>
     </div>
   </div>
 
-  <div class="panel" id="recentpanel" style="display:none">
-    <div class="ph"><h3>Recent tool calls</h3></div>
-    <div class="tw" id="recent"></div>
-  </div>
   <div class="panel" id="agentspanel" style="display:none">
     <div class="ph"><h3>Clients &amp; probes</h3></div>
     <div id="agents"></div>
@@ -356,22 +365,41 @@ export const STATS_HTML = `<!doctype html>
     var top=cc?('<span class="geo">'+flag(cc)+'<span>'+esc(cc)+'</span></span>'):'<span class="sub">—</span>';
     return top+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
   }
+  var auditFilter='all', auditPage=0; var AUDIT_PAGE=15;
+  function isX402(e){ return (e.kind==='x402')||(String(e.action||'').indexOf('x402 ')===0); }
+  // Client cell: country flag + friendly client label (tool) or payer/cid (x402);
+  // raw IP appended only when present (token-gated detail view).
+  function clientCell(e){
+    var cc=e.geo?String(e.geo).toUpperCase():''; var fl=cc?(flag(cc)+' '):'';
+    var who=e.client||e.cid||'—';
+    return '<div class="geo">'+fl+'<span>'+esc(who)+'</span></div>'+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
+  }
+  function detailsCell(e){ var v=isX402(e)?(e.terms||e.args||''):(e.args||''); return '<span class="args">'+esc(v||'—')+'</span>'; }
   function renderAudit(){
-    var a=data.audit||[];
-    if(!a.length){ show('auditpanel',false); return; }
+    var all=data.audit||[];
+    if(!all.length){ show('auditpanel',false); return; }
     show('auditpanel',true);
-    var rows=a.map(function(e){
+    var a=all.filter(function(e){ return auditFilter==='all'?true:auditFilter==='x402'?isX402(e):!isX402(e); });
+    var pages=Math.max(1,Math.ceil(a.length/AUDIT_PAGE));
+    if(auditPage>=pages) auditPage=pages-1; if(auditPage<0) auditPage=0;
+    var page=a.slice(auditPage*AUDIT_PAGE,(auditPage+1)*AUDIT_PAGE);
+    var rows=page.map(function(e){
       return '<tr>'+
-        '<td data-l="Client" class="cid">'+esc(e.cid)+'</td>'+
-        '<td data-l="Location">'+geoHtml(e)+'</td>'+
+        '<td data-l="When" style="white-space:nowrap;color:var(--muted)">'+ago(e.ts)+'</td>'+
+        '<td data-l="Client">'+clientCell(e)+'</td>'+
         '<td data-l="Action"><b>'+esc(e.action)+'</b></td>'+
-        '<td data-l="Terms" class="mono">'+esc(e.terms||'—')+'</td>'+
+        '<td data-l="Details">'+detailsCell(e)+'</td>'+
         '<td data-l="State">'+stateHtml(e.state)+'</td>'+
-        '<td data-l="Tokens" class="num">'+(e.tokens==null?'—':n(e.tokens))+'</td>'+
         '<td data-l="Hash" class="hash">'+(e.hash?'sha256:'+esc(e.hash):'—')+'</td>'+
         '</tr>';
     }).join('');
-    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>Client</th><th>Location</th><th>Action</th><th>x402 terms</th><th>State</th><th class="num">Tokens</th><th>Result hash</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>When</th><th>Client</th><th>Action</th><th>Details</th><th>State</th><th>Result hash</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    el('auditpager').innerHTML = pages>1
+      ? '<button id="auditprev"'+(auditPage===0?' disabled':'')+'>← Prev</button><span>Page '+(auditPage+1)+' / '+pages+' · '+a.length+' rows</span><button id="auditnext"'+(auditPage>=pages-1?' disabled':'')+'>Next →</button>'
+      : '<span>'+a.length+' row'+(a.length===1?'':'s')+'</span>';
+    var pv=el('auditprev'), nx=el('auditnext');
+    if(pv) pv.addEventListener('click',function(){ auditPage--; renderAudit(); });
+    if(nx) nx.addEventListener('click',function(){ auditPage++; renderAudit(); });
   }
 
   function chartSVG(rows){
@@ -412,20 +440,6 @@ export const STATS_HTML = `<!doctype html>
     }).join('');
   }
 
-  function renderRecent(){
-    var r=data.recent||[];
-    if(!r.length){ show('recentpanel',false); return; }
-    show('recentpanel',true);
-    var rows=r.slice(0,20).map(function(x){
-      var badge=x.outcome==='error'?'<span class="pill bad">error</span>':'';
-      return '<tr><td data-l="When" style="white-space:nowrap;color:var(--muted)">'+ago(x.ts)+'</td>'+
-        '<td data-l="Tool"><b>'+esc(x.tool)+'</b> '+badge+'</td>'+
-        '<td data-l="Client" class="cid">'+esc(x.agent||'—')+'</td>'+
-        '<td data-l="Arguments" class="args">'+esc(x.args||'')+'</td></tr>';
-    }).join('');
-    el('recent').innerHTML='<table class="resp"><thead><tr><th>When</th><th>Tool</th><th>Client</th><th>Arguments</th></tr></thead><tbody>'+rows+'</tbody></table>';
-  }
-
   function agentTable(list){
     var rows=list.slice(0,12).map(function(x){
       var lbl=x.label||x.name;
@@ -450,7 +464,7 @@ export const STATS_HTML = `<!doctype html>
     el('foot').innerHTML='Updated '+when+' · since '+(data.since||'—')+(token?' · detailed view':'')+' · read-only, no PII stored · client ids are opaque salted hashes, payer addresses shortened, x402 tx hashes are public on-ledger.<br/>Public JSON: <a href="'+base+'.json">'+base+'.json</a> · <a href="https://xrpdomains.xyz/agent">xrpdomains.xyz/agent</a>';
   }
 
-  function renderAll(){ renderKpis(); renderX402(); renderAudit(); renderChart(); renderTools(); renderRecent(); renderAgents(); setFoot(); }
+  function renderAll(){ renderKpis(); renderX402(); renderAudit(); renderChart(); renderTools(); renderAgents(); setFoot(); }
 
   function load(){
     el('sub').textContent='loading…';
@@ -466,6 +480,12 @@ export const STATS_HTML = `<!doctype html>
   });
   el('refresh').addEventListener('click', function(){ load(); loadHealth(); });
   var xp=el('auditexport'); if(xp) xp.addEventListener('click', exportAudit);
+  var af=el('auditfilter'); if(af) af.addEventListener('click', function(ev){
+    var b=ev.target.closest('button'); if(!b) return;
+    auditFilter=b.getAttribute('data-f'); auditPage=0;
+    Array.prototype.forEach.call(af.children,function(c){ c.classList.toggle('on', c===b); });
+    if(data) renderAudit();
+  });
   function tick(){ if(data && data.generatedAt) el('sub').textContent='live · updated '+ago(Date.parse(data.generatedAt)); }
   setInterval(tick, 1000);
   setInterval(function(){ load(); loadHealth(); }, 45000);

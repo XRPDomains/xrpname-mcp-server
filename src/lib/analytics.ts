@@ -32,7 +32,7 @@ const MAX_IP_MAP = 20_000; // bound the in-memory ip→agent map
 const RECENT_MAX = 50; // ring buffer size for the recent-calls log
 const ARGS_MAX_CHARS = 300; // truncate stored tool arguments
 const X402_RECENT_MAX = 25; // ring buffer size for the x402 activity log
-const AUDIT_MAX = 40; // ring buffer size for the per-request audit trail
+const AUDIT_MAX = 200; // ring buffer size for the unified activity/audit trail (paginated)
 
 // The real XRPName tools (mirrors src/tools/index.ts). The public dashboard only
 // shows these — scanner-injected names (run_shell, delete_user, __probe…) are
@@ -181,6 +181,9 @@ export interface AuditEntry {
   hash: string; // short sha256 digest over the recorded fields (tamper-evident)
   geo?: string | null; // ISO country code (Cloudflare cf-ipcountry) — PUBLIC-safe
   ip?: string | null; // raw client IP — emitted ONLY in the token-gated detail view
+  client?: string | null; // friendly client label (tool calls) — from name/UA
+  args?: string | null; // compact tool arguments (tool calls only), addresses shortened
+  kind?: 'tool' | 'x402'; // row type, for the dashboard filter chips
 }
 
 interface X402Stats {
@@ -429,7 +432,8 @@ export class Analytics {
       });
       if (s.recent.length > RECENT_MAX) s.recent.splice(0, s.recent.length - RECENT_MAX);
 
-      // audit trail — one row per tool call
+      // audit trail — one unified row per tool call (carries args + client so a
+      // single dashboard table replaces the old separate "recent" feed).
       const argStr = compactArgs(input.args);
       const geo = normCountry(input.country);
       this.pushAudit({
@@ -442,6 +446,9 @@ export class Analytics {
         hash: this.auditHash(tool + '|' + argStr + '|' + input.outcome + '|' + (geo ?? '')),
         geo,
         ip: input.ip ?? null,
+        client: resolveClientLabel(linked ? linked.name : null, input.ua),
+        args: argStr,
+        kind: 'tool',
       });
     }
 
@@ -517,6 +524,9 @@ export class Analytics {
       hash: this.auditHash('x402|' + evt.kind + '|' + clean(evt.item || '') + '|' + (evt.tx || '')),
       geo,
       ip: evt.ip ?? null,
+      client: null,
+      args: clean(evt.item || ''),
+      kind: 'x402',
     });
     this.scheduleSave();
   }
@@ -542,6 +552,9 @@ export class Analytics {
       hash: this.auditHash('x402refuse|' + evt.kind + '|' + clean(evt.item || '') + '|' + clean(evt.reason || '')),
       geo: normCountry(evt.country),
       ip: evt.ip ?? null,
+      client: null,
+      args: clean(evt.item || ''),
+      kind: 'x402',
     });
     this.scheduleSave();
   }
@@ -676,7 +689,7 @@ export class Analytics {
     // detail view — stripped from the public snapshot.
     out.audit = (s.audit ?? [])
       .filter((a) => a.action && (a.action.indexOf('x402 ') === 0 || KNOWN_TOOLS.has(a.action)))
-      .slice(-30)
+      .slice(-AUDIT_MAX)
       .reverse()
       .map((a) => {
         const { ip, ...pub } = a;

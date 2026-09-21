@@ -393,7 +393,13 @@ export const STATS_HTML = `<!doctype html>
     var all=data.audit||[];
     if(!all.length){ show('auditpanel',false); return; }
     show('auditpanel',true);
-    var a=all.filter(function(e){ return auditFilter==='all'?true:auditFilter==='x402'?isX402(e):!isX402(e); });
+    var a=all.filter(function(e){
+      // Drop pre-upgrade tool rows that predate the client/query capture (they
+      // carry no client or args — nothing to show). x402 rows are always kept.
+      if(!isX402(e) && !e.args && !e.client) return false;
+      return auditFilter==='all'?true:auditFilter==='x402'?isX402(e):!isX402(e);
+    });
+    if(!a.length){ el('auditbody').innerHTML='<div class="empty">No activity in this view yet.</div>'; el('auditpager').innerHTML=''; return; }
     var pages=Math.max(1,Math.ceil(a.length/AUDIT_PAGE));
     if(auditPage>=pages) auditPage=pages-1; if(auditPage<0) auditPage=0;
     var page=a.slice(auditPage*AUDIT_PAGE,(auditPage+1)*AUDIT_PAGE);

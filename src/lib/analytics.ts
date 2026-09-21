@@ -524,7 +524,7 @@ export class Analytics {
       hash: this.auditHash('x402|' + evt.kind + '|' + clean(evt.item || '') + '|' + (evt.tx || '')),
       geo,
       ip: evt.ip ?? null,
-      client: null,
+      client: evt.payer ? shortenAddresses(evt.payer) : null, // payer is the meaningful identity for x402
       args: clean(evt.item || ''),
       kind: 'x402',
     });
@@ -552,7 +552,7 @@ export class Analytics {
       hash: this.auditHash('x402refuse|' + evt.kind + '|' + clean(evt.item || '') + '|' + clean(evt.reason || '')),
       geo: normCountry(evt.country),
       ip: evt.ip ?? null,
-      client: null,
+      client: evt.payer ? shortenAddresses(evt.payer) : null,
       args: clean(evt.item || ''),
       kind: 'x402',
     });

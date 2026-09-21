@@ -107,6 +107,7 @@ export const STATS_HTML = `<!doctype html>
   .pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px;color:var(--sub);font-size:13px}
   .pager button{font:inherit;font-size:13px;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 12px;cursor:pointer}
   .pager button:disabled{opacity:.35;cursor:default}
+  .amt{font-family:var(--mono);font-size:12px;color:var(--accent);margin-left:6px;white-space:nowrap}
   .cur{font-size:11px;font-weight:600;letter-spacing:.3px;padding:1px 6px;border-radius:5px;border:1px solid transparent;vertical-align:1px}
   .cur.xrp{color:var(--accent);border-color:rgba(51,187,255,.3);background:rgba(51,187,255,.08)}
   .cur.rlusd{color:#4ade80;border-color:rgba(74,222,128,.32);background:rgba(74,222,128,.1)}
@@ -370,11 +371,24 @@ export const STATS_HTML = `<!doctype html>
   // Client cell: country flag + friendly client label (tool) or payer/cid (x402);
   // raw IP appended only when present (token-gated detail view).
   function clientCell(e){
-    var cc=e.geo?String(e.geo).toUpperCase():''; var fl=cc?(flag(cc)+' '):'';
-    var who=e.client||e.cid||'—';
-    return '<div class="geo">'+fl+'<span>'+esc(who)+'</span></div>'+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
+    var cc=e.geo?String(e.geo).toUpperCase():''; var fl=cc?flag(cc):'';
+    // Show the meaningful identity only: client label (tools) or payer (x402).
+    // The opaque random cid is not shown — it carries no information.
+    var who=e.client?'<span>'+esc(e.client)+'</span>':'';
+    var body=(fl||who)?('<div class="geo">'+fl+(fl&&who?' ':'')+who+'</div>'):'<span class="sub">—</span>';
+    return body+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
   }
-  function detailsCell(e){ var v=isX402(e)?(e.terms||e.args||''):(e.args||''); return '<span class="args">'+esc(v||'—')+'</span>'; }
+  // Action cell: tool name, or "x402 register/pay" with the amount pulled in from
+  // the terms so the x402 value is visible without a separate column.
+  function actionCell(e){
+    var a='<b>'+esc(e.action)+'</b>';
+    if(isX402(e)&&e.terms){ var amt=String(e.terms).split(' → ')[0]; if(amt) a+=' <span class="amt">'+esc(amt)+'</span>'; }
+    return a;
+  }
+  // Query cell: the request payload — tool arguments, or the x402 domain/item.
+  function queryCell(e){ return '<span class="args">'+esc(e.args||'—')+'</span>'; }
+  // Result cell merges State + tamper-evident hash into one column.
+  function resultCell(e){ return stateHtml(e.state)+(e.hash?'<div class="hash" style="margin-top:3px">sha256:'+esc(e.hash)+'</div>':''); }
   function renderAudit(){
     var all=data.audit||[];
     if(!all.length){ show('auditpanel',false); return; }
@@ -387,13 +401,12 @@ export const STATS_HTML = `<!doctype html>
       return '<tr>'+
         '<td data-l="When" style="white-space:nowrap;color:var(--muted)">'+ago(e.ts)+'</td>'+
         '<td data-l="Client">'+clientCell(e)+'</td>'+
-        '<td data-l="Action"><b>'+esc(e.action)+'</b></td>'+
-        '<td data-l="Details">'+detailsCell(e)+'</td>'+
-        '<td data-l="State">'+stateHtml(e.state)+'</td>'+
-        '<td data-l="Hash" class="hash">'+(e.hash?'sha256:'+esc(e.hash):'—')+'</td>'+
+        '<td data-l="Action">'+actionCell(e)+'</td>'+
+        '<td data-l="Query">'+queryCell(e)+'</td>'+
+        '<td data-l="Result">'+resultCell(e)+'</td>'+
         '</tr>';
     }).join('');
-    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>When</th><th>Client</th><th>Action</th><th>Details</th><th>State</th><th>Result hash</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    el('auditbody').innerHTML='<table class="resp"><thead><tr><th>When</th><th>Client</th><th>Action</th><th>Query</th><th>Result</th></tr></thead><tbody>'+rows+'</tbody></table>';
     el('auditpager').innerHTML = pages>1
       ? '<button id="auditprev"'+(auditPage===0?' disabled':'')+'>← Prev</button><span>Page '+(auditPage+1)+' / '+pages+' · '+a.length+' rows</span><button id="auditnext"'+(auditPage>=pages-1?' disabled':'')+'>Next →</button>'
       : '<span>'+a.length+' row'+(a.length===1?'':'s')+'</span>';

@@ -137,11 +137,16 @@ export const STATS_HTML = `<!doctype html>
     .kpis{grid-template-columns:1fr 1fr}
     table.resp{min-width:0}
     table.resp thead{display:none}
-    table.resp tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:6px 12px;background:var(--surface2)}
-    table.resp td{display:flex;justify-content:space-between;gap:14px;border:0;padding:7px 0;white-space:normal}
-    table.resp td::before{content:attr(data-l);color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;flex:0 0 auto}
-    table.resp td.args{max-width:none;text-align:right}
-    .args{max-width:none;white-space:normal;word-break:break-all}
+    /* stacked card: label on top, value below, left-aligned, hairline per field */
+    table.resp tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:2px 14px;background:var(--surface2)}
+    table.resp td{display:block;border:0;border-bottom:1px solid var(--line);padding:9px 0;white-space:normal;max-width:none;text-align:left}
+    table.resp tr td:last-child{border-bottom:0}
+    table.resp td::before{content:attr(data-l);display:block;color:var(--muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+    table.resp td.num{text-align:left}
+    table.resp td .cv{text-align:left;min-width:0}
+    table.resp td .cv .geo{justify-content:flex-start}
+    table.resp td .cv .hash{margin-top:3px}
+    .args{max-width:none;white-space:normal;word-break:break-word}
   }
   @media(prefers-reduced-motion:reduce){ .dot{animation:none} *{transition:none!important} }
 </style>
@@ -405,11 +410,11 @@ export const STATS_HTML = `<!doctype html>
     var page=a.slice(auditPage*AUDIT_PAGE,(auditPage+1)*AUDIT_PAGE);
     var rows=page.map(function(e){
       return '<tr>'+
-        '<td data-l="When" style="white-space:nowrap;color:var(--muted)">'+ago(e.ts)+'</td>'+
-        '<td data-l="Client">'+clientCell(e)+'</td>'+
-        '<td data-l="Action">'+actionCell(e)+'</td>'+
-        '<td data-l="Query">'+queryCell(e)+'</td>'+
-        '<td data-l="Result">'+resultCell(e)+'</td>'+
+        '<td data-l="When"><div class="cv" style="white-space:nowrap;color:var(--muted)">'+ago(e.ts)+'</div></td>'+
+        '<td data-l="Client"><div class="cv">'+clientCell(e)+'</div></td>'+
+        '<td data-l="Action"><div class="cv">'+actionCell(e)+'</div></td>'+
+        '<td data-l="Query"><div class="cv">'+queryCell(e)+'</div></td>'+
+        '<td data-l="Result"><div class="cv">'+resultCell(e)+'</div></td>'+
         '</tr>';
     }).join('');
     el('auditbody').innerHTML='<table class="resp"><thead><tr><th>When</th><th>Client</th><th>Action</th><th>Query</th><th>Result</th></tr></thead><tbody>'+rows+'</tbody></table>';

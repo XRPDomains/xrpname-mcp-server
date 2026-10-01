@@ -8,6 +8,7 @@ import { ApiEndpoints, type EndpointSet } from '../lib/api-endpoints.js';
 import { normalizePortfolioPage, type PortfolioEntry } from '../lib/portfolio.js';
 import { parsePricing, readByPath, type PricingTable } from '../lib/pricing-source.js';
 import { parseCreateOrderResponse, type CreateOrderResult } from '../lib/create-order.js';
+import { fetchWithTimeout } from '../lib/http.js';
 import type { Cache } from './cache.js';
 
 const TIMEOUT_MS = 15_000;
@@ -44,10 +45,8 @@ export class XrpDomainsApi {
   ) {}
 
   private async fetchJson(path: string): Promise<unknown> {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(this.base + path, { signal: ctrl.signal });
+      const res = await fetchWithTimeout(this.base + path, {}, TIMEOUT_MS);
       if (res.status >= 500) {
         throw new McpToolError(
           'BACKEND_UNAVAILABLE',
@@ -64,21 +63,20 @@ export class XrpDomainsApi {
         'BACKEND_UNAVAILABLE',
         'Could not reach xrpdomains.xyz backend (network error or timeout).',
       );
-    } finally {
-      clearTimeout(t);
     }
   }
 
   private async postJson(path: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<unknown> {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch(this.base + path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
+      const res = await fetchWithTimeout(
+        this.base + path,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        timeoutMs,
+      );
       if (res.status >= 500) {
         throw new McpToolError('BACKEND_UNAVAILABLE', 'XRPName is temporarily unavailable.');
       }
@@ -87,8 +85,6 @@ export class XrpDomainsApi {
     } catch (err) {
       if (err instanceof McpToolError) throw err;
       throw new McpToolError('BACKEND_UNAVAILABLE', 'Could not reach xrpdomains.xyz backend.');
-    } finally {
-      clearTimeout(t);
     }
   }
 
@@ -290,10 +286,7 @@ export class XrpDomainsApi {
     if (cached) return cached;
     for (const src of table.rateSources) {
       try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), src.timeoutMs);
-        const res = await fetch(src.endpoint, { signal: ctrl.signal });
-        clearTimeout(t);
+        const res = await fetchWithTimeout(src.endpoint, {}, src.timeoutMs);
         if (!res.ok) continue;
         const rate = readByPath(await res.json(), src.jsonPath);
         if (rate) {
@@ -327,11 +320,7 @@ export class XrpDomainsApi {
    */
   notifyRegistration(domain: string, priceLabel: string, adapter = 'x402'): void {
     const path = this.endpoints.add2Queue(domain, priceLabel, adapter);
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 5_000);
-    void fetch(this.base + path, { signal: ctrl.signal })
-      .catch(() => {})
-      .finally(() => clearTimeout(t));
+    void fetchWithTimeout(this.base + path, {}, 5_000).catch(() => {});
   }
 }
 

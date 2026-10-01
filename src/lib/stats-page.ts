@@ -364,13 +364,6 @@ export const STATS_HTML = `<!doctype html>
     if(!/^[a-z]{2}$/.test(cc)) return '';
     return '<img class="flagimg" src="https://flagcdn.com/'+cc+'.svg" alt="" loading="lazy" onerror="this.remove()">';
   }
-  // Location cell: flag + country code (public). Raw IP only present in the
-  // token-gated detail snapshot — shown small + mono beneath when available.
-  function geoHtml(e){
-    var cc=e.geo?String(e.geo).toUpperCase():'';
-    var top=cc?('<span class="geo">'+flag(cc)+'<span>'+esc(cc)+'</span></span>'):'<span class="sub">—</span>';
-    return top+(e.ip?'<div class="ipline mono">'+esc(e.ip)+'</div>':'');
-  }
   var auditFilter='all', auditPage=0; var AUDIT_PAGE=15;
   function isX402(e){ return (e.kind==='x402')||(String(e.action||'').indexOf('x402 ')===0); }
   // Client cell: country flag + friendly client label (tool) or payer/cid (x402);
@@ -402,7 +395,8 @@ export const STATS_HTML = `<!doctype html>
       // Drop pre-upgrade tool rows that predate the client/query capture (they
       // carry no client or args — nothing to show). x402 rows are always kept.
       if(!isX402(e) && !e.args && !e.client) return false;
-      return auditFilter==='all'?true:auditFilter==='x402'?isX402(e):!isX402(e);
+      if(auditFilter==='all') return true;
+      return auditFilter==='x402' ? isX402(e) : !isX402(e);
     });
     if(!a.length){ el('auditbody').innerHTML='<div class="empty">No activity in this view yet.</div>'; el('auditpager').innerHTML=''; return; }
     var pages=Math.max(1,Math.ceil(a.length/AUDIT_PAGE));

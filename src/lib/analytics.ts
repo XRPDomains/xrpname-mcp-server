@@ -23,6 +23,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { XRPL_ADDRESS_BODY } from './domain-validator.js';
+
+/** Global matcher for XRPL addresses embedded in a string (for shortening). */
+const XRPL_ADDRESS_G = new RegExp(XRPL_ADDRESS_BODY, 'g');
 
 const RETENTION_DAYS = 400; // prune day buckets older than this
 const MAX_DAY_UNIQUES = 50_000; // cap per-day unique-hash set (file-size guard)
@@ -255,7 +259,7 @@ function clean(v: string): string {
 
 /** Shorten XRPL classic addresses (r...) to `rXXXX…XXXX` for display. */
 function shortenAddresses(s: string): string {
-  return s.replace(/r[1-9A-HJ-NP-Za-km-z]{24,34}/g, (m) => `${m.slice(0, 6)}…${m.slice(-4)}`);
+  return s.replace(XRPL_ADDRESS_G, (m) => `${m.slice(0, 6)}…${m.slice(-4)}`);
 }
 
 /** Compact + length-limited JSON of tool arguments for the recent-calls log. */
@@ -321,16 +325,26 @@ export class Analytics {
     };
   }
 
+  /** Short, salt-prefixed sha256 hex digest of `input`, truncated to `len`. */
+  private salted(input: string, len: number): string {
+    return createHash('sha256').update(this.store.salt + '|' + input).digest('hex').slice(0, len);
+  }
+
+  /** Opaque client id derived from a payer address (x402 audit rows). */
+  private payerCid(payer?: string | null): string {
+    return 'c_' + this.salted(payer || '', 8);
+  }
+
   /** Opaque, salted client id (no PII) from ip+ua. */
   private cidFor(ip?: string | null, ua?: string | null): string {
     const basis = (ip || '') + '|' + (ua || '');
     if (!ip && !ua) return 'c_anon';
-    return 'c_' + createHash('sha256').update(this.store.salt + '|' + basis).digest('hex').slice(0, 8);
+    return 'c_' + this.salted(basis, 8);
   }
 
   /** Short, salted digest over the recorded audit fields (tamper-evident). */
   private auditHash(parts: string): string {
-    return createHash('sha256').update(this.store.salt + '|' + parts).digest('hex').slice(0, 12);
+    return this.salted(parts, 12);
   }
 
   private pushAudit(e: AuditEntry): void {
@@ -355,7 +369,7 @@ export class Analytics {
   }
 
   private clientHash(ip: string, agent: string): string {
-    return createHash('sha256').update(`${this.store.salt}|${ip}|${agent}`).digest('hex').slice(0, 16);
+    return this.salted(`${ip}|${agent}`, 16);
   }
 
   /** Record a completed request. Safe to call on every /mcp request. */
@@ -516,7 +530,7 @@ export class Analytics {
     const geo = normCountry(evt.country);
     this.pushAudit({
       ts: Date.now(),
-      cid: 'c_' + createHash('sha256').update(this.store.salt + '|' + (evt.payer || '')).digest('hex').slice(0, 8),
+      cid: this.payerCid(evt.payer),
       action: 'x402 ' + evt.kind,
       terms: paid + ' ' + cur + (payToShort ? ' → ' + payToShort : ''),
       state: evt.tx ? 'tx:' + evt.tx : 'ok',
@@ -544,7 +558,7 @@ export class Analytics {
     if (!this.enabled) return;
     this.pushAudit({
       ts: Date.now(),
-      cid: 'c_' + createHash('sha256').update(this.store.salt + '|' + (evt.payer || '')).digest('hex').slice(0, 8),
+      cid: this.payerCid(evt.payer),
       action: 'x402 ' + evt.kind,
       terms: evt.amountXrp ? evt.amountXrp + ' XRP' : clean(evt.item || ''),
       state: 'refused:' + clean(evt.reason || 'error'),

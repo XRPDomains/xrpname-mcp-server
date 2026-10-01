@@ -12,6 +12,8 @@
  * PAYMENT-RESPONSE (server→client) — all base64-encoded JSON.
  */
 
+import { fetchWithTimeout } from './http.js';
+
 export const X402_VERSION = 2;
 export const DEFAULT_SOURCE_TAG = 804681468;
 
@@ -159,20 +161,13 @@ export async function settleWithFacilitator(
   const post = async (
     path: string,
   ): Promise<{ ok: boolean; status: number; json: Record<string, unknown> }> => {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(`${base}${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        signal: ctrl.signal,
-      });
-      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      return { ok: res.ok, status: res.status, json };
-    } finally {
-      clearTimeout(t);
-    }
+    const res = await fetchWithTimeout(
+      `${base}${path}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      timeoutMs,
+    );
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: res.ok, status: res.status, json };
   };
 
   try {

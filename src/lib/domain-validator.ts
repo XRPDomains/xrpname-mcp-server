@@ -7,7 +7,9 @@ export const TLDS = ['.xrp', '.xrpl', '.xrpfi', '.rlusd'] as const;
 export type Tld = (typeof TLDS)[number];
 
 const LABEL_RE = /^[a-z0-9_-]+$/;
-export const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
+/** Classic XRPL address body (no anchors) — shared so all matchers stay in sync. */
+export const XRPL_ADDRESS_BODY = 'r[1-9A-HJ-NP-Za-km-z]{24,34}';
+export const XRPL_ADDRESS_RE = new RegExp(`^${XRPL_ADDRESS_BODY}$`);
 
 export interface ValidDomain {
   ok: true;
